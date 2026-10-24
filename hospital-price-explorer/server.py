@@ -11,6 +11,7 @@ import os
 import re
 import secrets
 import io
+import zipfile
 import runpy
 from pathlib import Path
 from datetime import date, datetime
@@ -89,15 +90,32 @@ def normalized_column(value: object) -> str:
     return re.sub(r"[^a-z0-9]+", "_", str(value).lower()).strip("_")
 
 
-def upload_frame(contents: bytes, hospital_code: str, hospital_name: str, system: str, published: str):
+def upload_frame(contents: bytes, hospital_code: str, hospital_name: str, system: str, published: str, filename: str):
     max_bytes = int(os.environ.get("MAX_UPLOAD_MB", "100")) * 1024 * 1024
     if len(contents) > max_bytes:
         raise HTTPException(413, f"CSV files must be {max_bytes // 1024 // 1024} MB or smaller.")
     try:
         import pandas as pd
-        source = pd.read_csv(io.BytesIO(contents), dtype=str, low_memory=False)
+        source_name = filename
+        if filename.lower().endswith(".zip"):
+            archive = zipfile.ZipFile(io.BytesIO(contents))
+            csv_files = [entry for entry in archive.infolist() if not entry.is_dir() and entry.filename.lower().endswith(".csv")]
+            if not csv_files:
+                raise HTTPException(422, "The ZIP file does not contain a CSV file.")
+            # Price-file archives often include a readme. The largest CSV is the data file.
+            entry = max(csv_files, key=lambda item: item.file_size)
+            max_unzipped = int(os.environ.get("MAX_UNZIPPED_MB", "500")) * 1024 * 1024
+            if entry.file_size > max_unzipped:
+                raise HTTPException(413, f"The CSV inside the ZIP must be {max_unzipped // 1024 // 1024} MB or smaller after decompression.")
+            source_name = entry.filename
+            with archive.open(entry) as csv_stream:
+                source = pd.read_csv(csv_stream, dtype=str, low_memory=False)
+        else:
+            source = pd.read_csv(io.BytesIO(contents), dtype=str, low_memory=False)
+    except HTTPException:
+        raise
     except Exception as error:
-        raise HTTPException(422, f"Could not read CSV: {error}") from error
+        raise HTTPException(422, f"Could not read price file: {error}") from error
 
     # The first aliases are the simple ClearCost template. The longer names are
     # common CMS hospital transparency machine-readable-file headers.
@@ -413,8 +431,8 @@ async def admin_upload(
     x_admin_key: str | None = Header(None),
 ):
     require_admin_key(x_admin_username, x_admin_key)
-    if not file.filename or not file.filename.lower().endswith(".csv"):
-        raise HTTPException(422, "Upload a CSV file.")
+    if not file.filename or not file.filename.lower().endswith((".csv", ".zip")):
+        raise HTTPException(422, "Upload a CSV file or a ZIP containing a CSV.")
     hospital_id = normalize_id(hospital_code)
     code = hospital_code.upper().strip()
     if not code:
@@ -424,7 +442,7 @@ async def admin_upload(
         date.fromisoformat(published)
     except ValueError as error:
         raise HTTPException(422, "Published date must be YYYY-MM-DD.") from error
-    frame = upload_frame(await file.read(), code, hospital_name.strip(), system.strip(), published)
+    frame = upload_frame(await file.read(), code, hospital_name.strip(), system.strip(), published, file.filename)
     ensure_admin_tables()
     con = duckdb.connect(DB)
     try:

@@ -4,6 +4,8 @@ import importlib
 import runpy
 import tempfile
 import unittest
+import io
+import zipfile
 from pathlib import Path
 
 import numpy as np
@@ -117,9 +119,13 @@ class ThreeHospitalApiTests(unittest.TestCase):
         }).json()
         self.assertEqual(price["rows"][0]["amount"], 900.0)
         bulk_csv = b"billing_code,billing_code_description,payer_name,standard_charge_discounted_cash\n72148,MRI lumbar spine,Blue Cross Blue Shield,750\n"
+        archive = io.BytesIO()
+        with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED) as zipped:
+            zipped.writestr("readme.txt", "Hospital price file")
+            zipped.writestr("standard-charges.csv", bulk_csv)
         bulk = self.client.post("/api/admin/uploads", headers=headers, data={
             "hospital_name": "Bulk Hospital", "hospital_code": "BULK", "published": "2026-10-24",
-        }, files={"file": ("standard-charges.csv", bulk_csv, "text/csv")})
+        }, files={"file": ("standard-charges.zip", archive.getvalue(), "application/zip")})
         self.assertEqual(bulk.status_code, 200, bulk.text)
         self.assertEqual(bulk.json()["proceduresAdded"], 1)
         procedure = self.client.get("/api/procedures/72148")
