@@ -57,7 +57,8 @@ def ensure_admin_tables():
 def refresh_hospitals():
     """Merge persistent admin-uploaded hospitals into the built-in starter catalog."""
     global HOSPITALS, BY_CODE
-    catalog = dict(DEFAULT_HOSPITALS)
+    start_empty = os.environ.get("START_WITH_EMPTY_CATALOG", "").lower() in {"1", "true", "yes"}
+    catalog = {} if start_empty else dict(DEFAULT_HOSPITALS)
     try:
         con = duckdb.connect(DB, read_only=True)
         rows = con.execute("select id, code, name, short_name, neighborhood, city, source, published from hospital_registry").fetchall()
