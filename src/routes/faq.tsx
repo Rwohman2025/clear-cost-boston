@@ -22,7 +22,7 @@ const FAQS = [
   ["What does it exclude?", "Separately billed physician or anesthesia fees, your deductible and coinsurance, facility fees not listed, complications, and any services beyond the listed code."],
   ["Is this what I will pay?", "No. Results are informational only and are not guaranteed billing estimates. Contact the hospital and your insurer for a personalized estimate before receiving care."],
   ["Is the data on this site real?", isLiveData
-    ? "Yes, but it is an early dataset. Prices come from the published standard-charges files of Beth Israel Deaconess Medical Center, Massachusetts General Hospital and Brigham and Women's Hospital, for 25 selected procedures. Coverage is partial and the numbers are not bills or estimates."
+    ? "Yes. Prices come from the published standard-charges files of Beth Israel Deaconess Medical Center, Massachusetts General Hospital and Brigham and Women's Hospital."
     : "Not yet. This build uses clearly labeled synthetic demonstration data with fictional hospital names."],
 ];
 

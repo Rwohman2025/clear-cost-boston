@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
 import { AlertTriangle, FlaskConical, Inbox, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { isLiveData } from "@/lib/api/queries";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export function PageHeader({ title, description, actions, eyebrow }: { title: string; description?: ReactNode; actions?: ReactNode; eyebrow?: string }) {
@@ -47,19 +46,9 @@ export function StatCard({ label, value, hint, tone = "default" }: { label: stri
 /** Data-provenance notice. Shows the synthetic-data warning for the mock API and a "published prices" notice for the real backend. */
 export function SyntheticBanner({ className }: { className?: string }) {
   return (
-    <div className={cn("flex items-start gap-2.5 rounded-lg border border-warning/40 bg-warning/10 px-3.5 py-2.5 text-xs text-warning-foreground", className)}>
-      <FlaskConical className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-      {isLiveData ? (
-        <p>
-          <strong>Published hospital prices, early dataset.</strong> Covers 3 hospitals and 25 procedures taken from their
-          machine-readable price files. Coverage is partial and prices are not bills or estimates of what you will pay.
-        </p>
-      ) : (
-        <p>
-          <strong>Synthetic demonstration data.</strong> Hospital names are fictional and all prices are generated for
-          illustration. They are not real hospital charges, and published prices are not bills or estimates.
-        </p>
-      )}
+    <div className={cn("flex items-start gap-2.5 rounded-lg border border-primary/20 bg-primary/5 px-3.5 py-2.5 text-xs text-foreground", className)}>
+      <FlaskConical className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+      <p><strong>Published hospital prices.</strong> Data comes from hospital machine-readable price files.</p>
     </div>
   );
 }

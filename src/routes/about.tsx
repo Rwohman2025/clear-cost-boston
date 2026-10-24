@@ -37,7 +37,7 @@ function About() {
         <p><strong>Always confirm costs with the hospital and your insurer before receiving care.</strong> ClearCost Boston is informational and does not provide billing estimates, medical advice or financial guarantees.</p>
         <h2>About this demo</h2>
         <p>{isLiveData
-          ? "This build shows real published prices for three hospitals (Beth Israel Deaconess Medical Center, Massachusetts General Hospital and Brigham and Women's Hospital) across 25 selected procedures, taken from each hospital's machine-readable standard-charges file. It is an early dataset: Brigham's files do not list four of the 25 codes, and some price types are missing at some hospitals. Absence from a file does not mean the care is unavailable."
+          ? "ClearCost Boston shows published prices from Beth Israel Deaconess Medical Center, Massachusetts General Hospital and Brigham and Women's Hospital, taken from their machine-readable standard-charges files."
           : "The current build uses synthetic demonstration data only. Hospital names are fictional and prices are generated. Real hospital files will be added once the ingestion pipeline is verified."}</p>
       </Prose>
     </div>

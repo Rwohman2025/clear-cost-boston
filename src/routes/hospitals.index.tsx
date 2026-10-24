@@ -28,7 +28,7 @@ function Directory() {
 
   return (
     <div className="space-y-5">
-      <PageHeader eyebrow="Hospitals" title="Hospital directory" description="Pricing file coverage and source details for each hospital in the demo dataset." />
+      <PageHeader eyebrow="Hospitals" title="Hospital directory" description="Pricing file coverage and source details for each hospital." />
       <SyntheticBanner />
       <div className="relative max-w-md">
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />

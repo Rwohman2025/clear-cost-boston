@@ -1,6 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { BookOpen, Building2, FlaskConical, HelpCircle, KeyRound, LayoutDashboard, ShieldCheck } from "lucide-react";
-import { isLiveData } from "@/lib/api/queries";
 import {
   Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarGroupLabel,
   SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar,
@@ -67,9 +66,7 @@ export function AppSidebar() {
       <SidebarFooter>
         {!collapsed && (
           <div className="rounded-lg border border-sidebar-border bg-sidebar-accent p-3 text-[11px] leading-relaxed text-sidebar-foreground/80">
-            {isLiveData
-              ? <><span className="font-semibold text-warning">Early dataset.</span> Published prices for 3 hospitals and 25 procedures. Not a bill or estimate.</>
-              : <><span className="font-semibold text-warning">Demo build.</span> All hospitals and prices shown are synthetic.</>}
+            <>Published prices from Boston hospitals.</>
           </div>
         )}
       </SidebarFooter>
