@@ -96,16 +96,19 @@ class ThreeHospitalApiTests(unittest.TestCase):
         duplicate = self.client.post("/api/admin/uploads", headers=headers, data={
             "hospital_name": "Test Hospital", "hospital_code": "TEST", "published": "2026-10-24",
         }, files={"file": ("repeat.csv", csv + csv.split(b"\n", 1)[1], "text/csv")})
-        self.assertEqual(duplicate.status_code, 422)
+        self.assertEqual(duplicate.status_code, 200, duplicate.text)
+        self.assertEqual(duplicate.json()["rowsImported"], 1)
+        self.assertEqual(duplicate.json()["duplicatesIgnored"], 1)
+        # Use a separate hospital for the remaining single-row import assertion.
         response = self.client.post("/api/admin/uploads", headers=headers, data={
-            "hospital_name": "Test Hospital", "hospital_code": "TEST", "published": "2026-10-24",
+            "hospital_name": "Single Row Hospital", "hospital_code": "SINGLE", "published": "2026-10-24",
         }, files={"file": ("test.csv", csv, "text/csv")})
         self.assertEqual(response.status_code, 200, response.text)
         self.assertEqual(response.json()["inScopeRows"], 1)
         hospitals = self.client.get("/api/hospitals").json()
-        self.assertIn("test", {h["id"] for h in hospitals})
+        self.assertIn("single", {h["id"] for h in hospitals})
         price = self.client.get("/api/prices/compare", params={
-            "code": "45385", "priceType": "cash", "setting": "outpatient", "hospitalIds": "test",
+            "code": "45385", "priceType": "cash", "setting": "outpatient", "hospitalIds": "single",
         }).json()
         self.assertEqual(price["rows"][0]["amount"], 900.0)
         bulk_csv = b"billing_code,billing_code_description,payer_name,standard_charge_discounted_cash\n72148,MRI lumbar spine,Blue Cross Blue Shield,750\n"
@@ -120,8 +123,8 @@ class ThreeHospitalApiTests(unittest.TestCase):
         search = self.client.get("/api/procedures", params={"q": "lumbar"}).json()
         self.assertEqual([p["code"] for p in search], ["72148"])
         con = __import__("duckdb").connect(config.DB)
-        con.execute("delete from raw where hospital in ('TEST', 'BULK')")
-        con.execute("delete from hospital_registry where id in ('test', 'bulk')")
+        con.execute("delete from raw where hospital in ('TEST', 'SINGLE', 'BULK')")
+        con.execute("delete from hospital_registry where id in ('test', 'single', 'bulk')")
         con.close()
         runpy.run_path(str(ROOT / "pipeline" / "03_clean.py"))
         self.api.load.cache_clear()
@@ -135,6 +138,7 @@ class ThreeHospitalApiTests(unittest.TestCase):
             del os.environ["ADMIN_USERNAME"]
         else:
             os.environ["ADMIN_USERNAME"] = previous_username
+
 
 
 if __name__ == "__main__":

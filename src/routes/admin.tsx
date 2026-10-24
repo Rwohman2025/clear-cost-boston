@@ -31,7 +31,7 @@ function AdminPage() {
       const response = await fetch(`${API_URL}/api/admin/uploads`, { method: "POST", headers: { "X-Admin-Username": username, "X-Admin-Key": key }, body });
       const result = await response.json();
       if (!response.ok) throw new Error(result.detail || "Upload failed.");
-      setStatus(`${result.rowsImported} price rows and ${result.proceduresAdded} procedures saved for ${hospitalName}. Refresh any open data pages to see them.`);
+      setStatus(`${result.rowsImported} price rows and ${result.proceduresAdded} procedures saved for ${hospitalName}${result.duplicatesIgnored ? `; ${result.duplicatesIgnored} repeated row${result.duplicatesIgnored === 1 ? "" : "s"} consolidated.` : "."} Refresh any open data pages to see them.`);
     } catch (reason) { setStatus(null); setError(reason instanceof Error ? reason.message : "Upload failed."); }
   }
 

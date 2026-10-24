@@ -158,9 +158,12 @@ def upload_frame(contents: bytes, hospital_code: str, hospital_name: str, system
     frame = frame[frame[["gross", "cash", "amount"]].notna().any(axis=1)].copy()
     if frame.empty:
         raise HTTPException(422, "No rows contained a five-character CPT or HCPCS code with a price.")
-    duplicate_count = int(frame.duplicated(subset=["code", "payer_raw", "plan_raw", "setting", "gross", "cash", "amount"]).sum())
-    if duplicate_count:
-        raise HTTPException(422, f"CSV contains {duplicate_count} repeated pricing row(s). Remove repeats before uploading.")
+    duplicate_columns = ["code", "payer_raw", "plan_raw", "setting", "gross", "cash", "amount"]
+    duplicate_count = int(frame.duplicated(subset=duplicate_columns).sum())
+    # Large hospital files commonly contain repeated price rows. Keep one copy so
+    # they don't distort medians, while retaining same-code rows with different payers or prices.
+    frame = frame.drop_duplicates(subset=duplicate_columns).copy()
+    frame.attrs["duplicatesIgnored"] = duplicate_count
     return frame
 
 
@@ -433,4 +436,4 @@ async def admin_upload(
     load.cache_clear()
     procedure_catalog.cache_clear()
     refresh_hospitals()
-    return {"status": "ok", "hospitalId": hospital_id, "rowsImported": int(len(frame)), "proceduresAdded": int(frame.code.nunique()), "inScopeRows": int(len(frame))}
+    return {"status": "ok", "hospitalId": hospital_id, "rowsImported": int(len(frame)), "proceduresAdded": int(frame.code.nunique()), "duplicatesIgnored": int(frame.attrs.get("duplicatesIgnored", 0)), "inScopeRows": int(len(frame))}

@@ -6,7 +6,7 @@ import {
 } from "@/components/ui/sidebar";
 
 const explore = [
-  { title: "Procedure Explorer", url: "/", icon: LayoutDashboard },
+  { title: "Procedure Explorer", url: "/explorer", icon: LayoutDashboard },
   { title: "Hospitals", url: "/hospitals", icon: Building2 },
   { title: "Data Quality", url: "/data-quality", icon: ShieldCheck },
 ] as const;
@@ -21,7 +21,7 @@ export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const path = useRouterState({ select: (r) => r.location.pathname });
-  const active = (url: string) => (url === "/" ? path === "/" : path.startsWith(url));
+  const active = (url: string) => path === url || path.startsWith(`${url}/`);
 
   const renderGroup = (label: string, items: typeof explore | typeof learn) => (
     <SidebarGroup>
