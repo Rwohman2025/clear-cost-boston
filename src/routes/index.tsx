@@ -15,9 +15,9 @@ export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "Procedure Explorer — ClearCost Boston" },
-      { name: "description", content: "Search a procedure and compare published hospital prices across greater Boston (synthetic demo data)." },
+      { name: "description", content: "Search a procedure and compare published hospital prices across greater Boston." },
       { property: "og:title", content: "Procedure Explorer — ClearCost Boston" },
-      { property: "og:description", content: "Compare min, max, median and variation in hospital prices for procedures like MRI lumbar spine (CPT 72148)." },
+      { property: "og:description", content: "Compare published hospital prices for procedures across greater Boston." },
     ],
   }),
   loader: ({ context: { queryClient } }) =>
@@ -84,37 +84,34 @@ function Explorer() {
         </Card>
       ) : (
         <div className={q.isFetching ? "space-y-5 opacity-60 transition-opacity" : "space-y-5 transition-opacity"}>
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-            <StatCard tone="primary" label="Median" value={formatUSD(q.data.stats.median)} hint={`${q.data.stats.count} hospitals reporting`} />
-            <StatCard label="Minimum" value={formatUSD(q.data.stats.min)} hint={q.data.rows.find((r) => r.amount === q.data.stats!.min)?.hospital.shortName} />
-            <StatCard label="Maximum" value={formatUSD(q.data.stats.max)} hint={q.data.rows.find((r) => r.amount === q.data.stats!.max)?.hospital.shortName} />
-            <StatCard label="Spread (max ÷ min)" value={`${q.data.stats.spreadRatio.toFixed(1)}×`} hint={`Range ${formatUSD(q.data.stats.max - q.data.stats.min)}`} />
-            <StatCard label="Variation (CV)" value={`${Math.round(q.data.stats.cv * 100)}%`} hint="Std. deviation ÷ mean" />
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <StatCard tone="primary" label="Typical listed price" value={formatUSD(q.data.stats.median)} hint="The middle reported price" />
+            <StatCard label="Lowest listed price" value={formatUSD(q.data.stats.min)} hint={q.data.rows.find((r) => r.amount === q.data.stats!.min)?.hospital.shortName} />
+            <StatCard label="Highest listed price" value={formatUSD(q.data.stats.max)} hint={q.data.rows.find((r) => r.amount === q.data.stats!.max)?.hospital.shortName} />
+            <StatCard label="Difference from low to high" value={formatUSD(q.data.stats.max - q.data.stats.min)} hint={`${q.data.stats.count} hospitals reporting`} />
           </div>
 
           <div className="grid gap-5 lg:grid-cols-3">
-            <Card className="lg:col-span-2" title="Hospital price comparison" subtitle="Sorted low to high · red bars are statistical outliers (1.5× IQR)">
+            <Card className="lg:col-span-2" title="Hospital price comparison" subtitle="Sorted from the lowest to the highest listed price.">
               <PriceComparisonChart rows={q.data.rows} stats={q.data.stats} />
             </Card>
             <div className="space-y-5">
-              <Card title="Price distribution" subtitle="Hospitals per price band, with interquartile range">
+              <Card title="Where prices cluster" subtitle="How many hospitals list prices in each price range.">
                 <PriceDistributionChart values={q.data.rows.map((r) => r.amount)} stats={q.data.stats} />
               </Card>
-              <Card title="Data quality & comparability">
+              <Card title="What to know">
                 <ul className="space-y-2.5 text-xs">
                   <QualityLine ok={q.data.missingHospitals.length === 0}
-                    text={q.data.missingHospitals.length === 0 ? "All selected hospitals report this price" : `${q.data.missingHospitals.length} hospital(s) missing: ${q.data.missingHospitals.map((h) => h.shortName).join(", ")}`} />
+                    text={q.data.missingHospitals.length === 0 ? "Every selected hospital lists a price for this service." : `${q.data.missingHospitals.length} hospital${q.data.missingHospitals.length === 1 ? "" : "s"} did not list a usable price: ${q.data.missingHospitals.map((h) => h.shortName).join(", ")}.`} />
                   <QualityLine ok={q.data.rows.filter((r) => r.isOutlier).length === 0}
-                    text={`${q.data.rows.filter((r) => r.isOutlier).length} outlier(s) flagged`} />
-                  <QualityLine ok={q.data.rows.every((r) => r.comparability >= 70)}
-                    text={`Avg. comparability score ${Math.round(q.data.rows.reduce((a, r) => a + r.comparability, 0) / q.data.rows.length)}/100`} />
-                  <QualityLine ok={false} text="Prices are not normalized for bundled services yet" />
+                    text={q.data.rows.filter((r) => r.isOutlier).length ? "One or more listed prices are much higher or lower than the others." : "No listed price stands far apart from the others."} />
+                  <QualityLine ok={false} text="A listed hospital price may not match your final bill. Your care and insurance coverage affect what you pay." />
                 </ul>
               </Card>
             </div>
           </div>
 
-          <Card title="Hospital pricing table" subtitle="Click a column to sort · click a hospital for its profile">
+          <Card title="Hospital pricing table" subtitle="See each hospital’s listed price and how it compares with the typical listed price.">
             <PriceTable rows={q.data.rows} stats={q.data.stats} />
           </Card>
         </div>

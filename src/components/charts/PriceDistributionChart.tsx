@@ -31,7 +31,7 @@ export function PriceDistributionChart({ values, stats, bins = 6 }: { values: nu
           <div className="absolute top-0 h-6 w-0.5 bg-navy" style={{ left: pos(stats.median) }} />
         </div>
         <div className="num mt-1 flex justify-between text-[10px] text-muted-foreground">
-          <span>{formatUSD(stats.min)}</span><span>IQR {formatUSD(stats.p25)}–{formatUSD(stats.p75)}</span><span>{formatUSD(stats.max)}</span>
+          <span>{formatUSD(stats.min)}</span><span>Middle half: {formatUSD(stats.p25)}–{formatUSD(stats.p75)}</span><span>{formatUSD(stats.max)}</span>
         </div>
       </div>
     </div>

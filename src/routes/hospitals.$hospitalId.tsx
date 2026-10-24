@@ -3,8 +3,8 @@ import { useSuspenseQuery } from "@tanstack/react-query";
 import { ArrowLeft, ExternalLink } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { hospitalPricesQuery, hospitalQuery, qualityQuery } from "@/lib/api/queries";
-import { formatPct, formatUSD } from "@/lib/stats";
-import { Card, Meter, PageHeader, ScorePill, StatCard, SyntheticBanner } from "@/components/common";
+import { formatUSD } from "@/lib/stats";
+import { Card, Meter, PageHeader, StatCard, SyntheticBanner } from "@/components/common";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/hospitals/$hospitalId")({
@@ -18,7 +18,7 @@ export const Route = createFileRoute("/hospitals/$hospitalId")({
     meta: loaderData
       ? [
           { title: `${loaderData.name} — ClearCost Boston` },
-          { name: "description", content: `Pricing coverage, data sources and price comparisons for ${loaderData.name} (synthetic demo data).` },
+          { name: "description", content: `Pricing coverage, data sources and price comparisons for ${loaderData.name} (published hospital prices).` },
           { property: "og:title", content: `${loaderData.name} — ClearCost Boston` },
           { property: "og:description", content: `Hospital profile for ${loaderData.name}.` },
         ]
@@ -52,14 +52,14 @@ function HospitalPage() {
       <SyntheticBanner />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard tone="primary" label="Comparability score" value={`${q.comparability}/100`} hint="Completeness, freshness, format" />
-        <StatCard label="Procedures published" value={`${published}/${prices.length}`} hint="Of tracked demo procedures" />
-        <StatCard label="Record completeness" value={`${q.completeness}%`} hint={`${q.missingCount} of ${q.expectedCount} records missing`} />
-        <StatCard label="Outliers flagged" value={q.outlierCount} hint="Cash prices beyond 1.5× IQR" />
+        <StatCard tone="primary" label="Procedures with prices" value={`${published}/${prices.length}`} hint="Procedures tracked for this hospital" />
+        <StatCard label="Price-file completeness" value={`${q.completeness}%`} hint="How much of the tracked price data is available" />
+        <StatCard label="Missing price entries" value={q.missingCount} hint="Entries not listed in the file" />
+        <StatCard label="Prices far from others" value={q.outlierCount} hint="Listed prices that stand apart" />
       </div>
 
       <div className="grid gap-5 lg:grid-cols-3">
-        <Card className="lg:col-span-2" title="Imaging cash prices vs. market median" subtitle="This hospital (blue) against the median across all demo hospitals (navy)">
+        <Card className="lg:col-span-2" title="Imaging cash prices compared with other hospitals" subtitle="This hospital (blue) beside the typical listed price at other hospitals (navy)">
           <div className="h-[260px]">
             <ResponsiveContainer>
               <BarChart data={chart} margin={{ left: -8, right: 8 }}>
@@ -68,7 +68,7 @@ function HospitalPage() {
                 <YAxis tickFormatter={(v) => formatUSD(v)} tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
                 <Tooltip cursor={{ fill: "var(--muted)" }} contentStyle={{ borderRadius: 8, border: "1px solid var(--border)", fontSize: 12 }} formatter={(v: number) => formatUSD(v)} />
                 <Bar dataKey="hospital" name="This hospital" fill="var(--chart-1)" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="market" name="Market median" fill="var(--chart-2)" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="market" name="Typical at other hospitals" fill="var(--chart-2)" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -89,7 +89,7 @@ function HospitalPage() {
         </Card>
       </div>
 
-      <Card title="Available pricing" subtitle="Default setting per procedure · negotiated = median across payers">
+      <Card title="Available pricing" subtitle="Prices listed by this hospital. Negotiated price is the middle rate across insurers.">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="border-b text-left text-xs text-muted-foreground">
@@ -97,8 +97,8 @@ function HospitalPage() {
                 <th className="px-3 py-2.5 font-medium">Procedure</th>
                 <th className="px-3 py-2.5 text-right font-medium">Gross charge</th>
                 <th className="px-3 py-2.5 text-right font-medium">Cash price</th>
-                <th className="px-3 py-2.5 text-right font-medium">Negotiated (median)</th>
-                <th className="px-3 py-2.5 text-right font-medium">Cash vs. market</th>
+                <th className="px-3 py-2.5 text-right font-medium">Typical negotiated price</th>
+                <th className="px-3 py-2.5 text-right font-medium">Cash compared with others</th>
               </tr>
             </thead>
             <tbody>
@@ -111,7 +111,7 @@ function HospitalPage() {
                     <td className="num px-3 py-2.5 text-right font-medium">{formatUSD(p.cash)}</td>
                     <td className="num px-3 py-2.5 text-right">{formatUSD(p.negotiatedMedian)}</td>
                     <td className={cn("num px-3 py-2.5 text-right text-xs", diff == null ? "text-muted-foreground" : diff > 0 ? "text-destructive" : "text-success")}>
-                      {diff == null ? "Not published" : formatPct(diff)}
+                      {diff == null ? "Not published" : `${Math.abs(Math.round(diff))}% ${diff > 0 ? "higher" : diff < 0 ? "lower" : "the same"}`}
                     </td>
                   </tr>
                 );
@@ -119,7 +119,7 @@ function HospitalPage() {
             </tbody>
           </table>
         </div>
-        <div className="mt-3"><ScorePill score={q.comparability} /> <span className="ml-2 text-xs text-muted-foreground">Overall comparability for this hospital's file</span></div>
+        <p className="mt-3 text-xs text-muted-foreground">Prices come from the hospital’s published machine-readable price file.</p>
       </Card>
     </div>
   );
