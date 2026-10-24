@@ -61,3 +61,4 @@ print(df[df.in_scope].groupby("hospital").agg(
 print(df[df.in_scope & df.payer.isna()].payer_raw.value_counts().head(30))
 
 con.register("clean", df); con.execute("create or replace table clean as select * from clean")
+con.close()

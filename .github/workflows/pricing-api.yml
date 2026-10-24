@@ -1,0 +1,18 @@
+
+name: Three-hospital API
+on: [push, pull_request]
+jobs:
+  api:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r hospital-price-explorer/requirements.txt httpx
+      - run: python -m unittest test_api.py
+        working-directory: hospital-price-explorer
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - run: node --experimental-strip-types --test scripts/http-api.test.mjs

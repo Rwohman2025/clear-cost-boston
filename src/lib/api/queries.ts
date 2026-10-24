@@ -1,21 +1,17 @@
 import { queryOptions } from "@tanstack/react-query";
 import type { PriceFilters } from "@/lib/models/types";
 import { createHttpApi } from "./http-api";
-import { mockApi } from "./mock-api";
 import type { PricingApi } from "./types";
 
-/**
- * Data source. Set VITE_API_URL (see .env.example) to use the real backend
- * (hospital-price-explorer/server.py); leave it unset to fall back to the synthetic mock API.
- */
+/** Published three-hospital prices are served by the separate Python backend. */
 const API_URL = import.meta.env["VITE_API_URL"] as string | undefined;
-export const isLiveData = Boolean(API_URL);
-export const api: PricingApi = API_URL ? createHttpApi(API_URL.replace(/\/$/, "")) : mockApi;
+export const isLiveData = true;
+export const api: PricingApi = createHttpApi(API_URL?.trim().replace(/\/$/, ""));
 
-/** Filters the Explorer opens with. Featured example per data source. */
-export const DEFAULT_FILTERS: PriceFilters = isLiveData
-  ? { code: "45385", priceType: "negotiated", setting: "outpatient", payerId: "blue-cross-blue-shield" } // colonoscopy w/ snare removal
-  : { code: "72148", priceType: "cash", setting: "outpatient", payerId: "bcbsma" }; // MRI lumbar spine (synthetic)
+/** Filters the Explorer opens with for the three-hospital dataset. */
+export const DEFAULT_FILTERS: PriceFilters = {
+  code: "45385", priceType: "negotiated", setting: "outpatient", payerId: "blue-cross-blue-shield",
+};
 
 export const proceduresQuery = (q = "") => queryOptions({ queryKey: ["procedures", q], queryFn: () => api.searchProcedures(q) });
 export const hospitalsQuery = (q = "") => queryOptions({ queryKey: ["hospitals", q], queryFn: () => api.listHospitals(q) });

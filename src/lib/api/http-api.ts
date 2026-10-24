@@ -1,6 +1,6 @@
 /**
  * HTTP client for the backend (hospital-price-explorer/server.py). Active when
- * VITE_API_URL is set (see queries.ts). REST surface:
+ * VITE_API_URL is set (see queries.ts). No synthetic fallback. REST surface:
  *
  *   GET /api/procedures?q=            -> Procedure[]
  *   GET /api/procedures/:code         -> Procedure
@@ -13,8 +13,9 @@
  */
 import type { PricingApi } from "./types";
 
-export function createHttpApi(baseUrl: string): PricingApi {
+export function createHttpApi(baseUrl?: string): PricingApi {
   const get = async <T,>(path: string): Promise<T> => {
+    if (!baseUrl) throw new Error("Hospital pricing is unavailable. Please try again later.");
     const res = await fetch(`${baseUrl}${path}`);
     if (!res.ok) throw new Error(`Request failed: ${res.status}`);
     return res.json() as Promise<T>;

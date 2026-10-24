@@ -10,7 +10,7 @@ The project has three parts that work together:
 | Backend | `hospital-price-explorer/` | Python + DuckDB pipeline and a FastAPI server (`server.py`) |
 | Real data | `three_hospitals_25_procedures.xlsx` | Published prices for Beth Israel Deaconess, Mass General and Brigham and Women's across 25 procedures (source ZIPs for MGH and BWH are alongside it) |
 
-The frontend runs in two modes. **With `VITE_API_URL` set it shows the real published prices from the backend.** Without it, it falls back to **synthetic demonstration data** (fictional hospitals, generated prices) from `src/lib/mock/`. Published prices are not bills or estimates.
+The frontend uses a separate Python API serving **three_hospitals_25_procedures.xlsx**: Beth Israel Deaconess, Massachusetts General, and Brigham and Women's across 25 selected procedures. Set `VITE_API_URL` to the API origin before building. Missing configuration or an unavailable API produces an error; the website never silently switches to synthetic data. The Dana-Farber CSV remains in the repository but is not ingested by this backend. Published prices are not bills or estimates.
 
 ## Stack
 TanStack Start (React 19, TypeScript), TanStack Router + Query, Tailwind CSS v4, shadcn/ui, Recharts.
@@ -24,8 +24,8 @@ src/
     stats.ts             Pure stats helpers (median, IQR, outliers, formatting) + stats.test.ts
     mock/data.ts         Seeded synthetic hospitals, procedures, payers and price records
     api/types.ts         PricingApi interface — the contract every data source implements
-    api/mock-api.ts      In-memory implementation used today
-    api/http-api.ts      Future HTTP client + proposed REST endpoints (inactive)
+    api/mock-api.ts      Legacy synthetic demo implementation (inactive)
+    api/http-api.ts      Active client for the separate Python API
     api/queries.ts       TanStack Query options; the single place pages get data from
   components/
     common/              Page header, cards, stat cards, loading/empty/error states, badges
@@ -65,7 +65,7 @@ npm run dev        # or: bun run dev
 ```
 Open **http://localhost:8080**. The dev server hot-reloads as you edit files.
 
-With no further setup this runs on the **synthetic mock data**. To use the real data, also run the backend below.
+Run the separate backend and copy .env.example to .env.local as shown below.
 
 ### Run with the real data (frontend + backend)
 Needs Python 3.10+ in addition to Node.
@@ -84,7 +84,7 @@ cp .env.example .env.local         # sets VITE_API_URL=http://localhost:8000
 npm run dev
 ```
 Restart the frontend after creating or changing `.env.local`, and restart the API after re-running `build_db.py`.
-To switch back to synthetic data, delete `.env.local` and restart `npm run dev`.
+Missing prices stay unavailable; synthetic prices are not substituted.
 
 **How the data flows:** `three_hospitals_25_procedures.xlsx` -> `pipeline/02_load_xlsx.py` (raw table) -> `pipeline/03_clean.py` (payer normalization, validity and outlier flags) -> `server.py` (stats, comparability, REST endpoints in the shapes of `src/lib/models/types.ts`) -> `src/lib/api/http-api.ts` -> pages.
 
@@ -94,6 +94,7 @@ To switch back to synthetic data, delete `.env.local` and restart `npm run dev`.
 | `npm run dev` | Start the dev server on port 8080 |
 | `npm run build` | Production build (output in `.output/`) |
 | `npm run preview` | Serve the production build locally |
+| `npm start` | Run the production Node server |
 | `npm test` | Run the unit tests once (Vitest) |
 | `npm run test:watch` | Run tests in watch mode |
 | `npm run lint` | Lint with ESLint |
@@ -105,3 +106,48 @@ Quick check before opening a PR: `npx tsc --noEmit && npm test && npm run build`
 - **`node` or `npm` not found (Windows):** install Node, then open a new terminal so the updated PATH is picked up.
 - **Port 8080 already in use:** stop the other process, or run `npm run dev -- --port 3000`.
 - **Odd dependency errors:** delete `node_modules` and run `npm install` again.
+
+
+## Railway: two separate services
+
+Connect both services to **Rwohman2025/clear-cost-boston**, branch **main**.
+Keep **Root Directory = /** for both: the backend needs the spreadsheet at the repository root.
+Enable automatic deployments on both services.
+
+### Backend (create first)
+
+1. Create a second Railway service from the same GitHub repository.
+2. Set Dockerfile Path to **hospital-price-explorer/Dockerfile**, Start Command to
+   **python start_server.py**, Healthcheck Path to **/api/health**, and PORT to **8000**.
+3. Clear any copied Node build/start command overrides. The Dockerfile installs Python dependencies,
+   loads only the three-hospital spreadsheet, and cleans the data into DuckDB at image build time.
+   No external database or volume is needed for this read-only dataset.
+4. Generate a public HTTPS domain. The API binds to 0.0.0.0 and Railway's PORT.
+5. Open **/api/health** on that domain. It must report source
+   **three_hospitals_25_procedures.xlsx**, 3 hospitals, 25 procedures, and 582 source rows.
+
+### Frontend (existing website)
+
+1. Set Build Command to **npm run build**, Start Command to
+   **node .output/server/index.mjs**, and PORT and NITRO_PORT to **3000**.
+2. Set **VITE_API_URL** to the backend's public HTTPS origin, without /api.
+   Do not use the frontend domain, localhost, or a railway.internal address: browser requests need a public API.
+3. Set NITRO_HOST to **0.0.0.0** and NITRO_PRESET to **node-server**.
+   Clear old diagnostic start commands. Nitro also explicitly builds with node-server in vite.config.ts.
+4. Rebuild and deploy after setting VITE_API_URL; Vite embeds it at build time.
+5. Verify the hospital directory shows BIDMC, MGH, and BWH; check an insurer-filtered comparison.
+   A code missing from a hospital must show as missing, rather than an invented price.
+
+Pushing this code does not create the second Railway service. Once both services are connected,
+pushes to main trigger their automatic deployments (subject to Railway settings).
+
+### API checks
+
+From hospital-price-explorer, install requirements.txt and httpx, then run:
+```bash
+python -m unittest test_api.py
+```
+The tests build a temporary database from the checked-in workbook and exercise the HTTP API.
+A GitHub Actions workflow runs these checks on pushes and pull requests.
+
+Railway settings are configured on each service. Legacy railway.toml/json configuration is not used.
