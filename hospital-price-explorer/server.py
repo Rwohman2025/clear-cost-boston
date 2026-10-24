@@ -198,9 +198,18 @@ def upload_frame(contents: bytes, hospital_code: str, hospital_name: str, system
     # Large hospital files commonly contain repeated price rows. Keep one copy so
     # they don't distort medians, while retaining same-code rows with different payers or prices.
     frame = frame.drop_duplicates(subset=duplicate_columns).copy()
+    # Hospital files don't report patient volumes. Rows published per operation are
+    # the best available on-file proxy for which operations are most broadly listed.
+    procedure_limit = int(os.environ.get("PROCEDURE_LIMIT", "30"))
+    ranked_codes = frame.groupby("code").size().sort_values(ascending=False, kind="stable").head(procedure_limit).index
+    ignored_procedures = int(frame.code.nunique() - len(ranked_codes))
+    ignored_procedure_rows = int((~frame.code.isin(ranked_codes)).sum())
+    frame = frame[frame.code.isin(ranked_codes)].copy()
     frame.attrs["duplicatesIgnored"] = duplicate_count
     frame.attrs["invalidValuesIgnored"] = invalid_values
     frame.attrs["outlierValuesIgnored"] = outlier_values
+    frame.attrs["proceduresIgnored"] = ignored_procedures
+    frame.attrs["procedureRowsIgnored"] = ignored_procedure_rows
     return frame
 
 
@@ -490,4 +499,4 @@ async def admin_upload(
     load.cache_clear()
     procedure_catalog.cache_clear()
     refresh_hospitals()
-    return {"status": "ok", "hospitalId": hospital_id, "rowsImported": int(len(frame)), "proceduresAdded": int(frame.code.nunique()), "duplicatesIgnored": int(frame.attrs.get("duplicatesIgnored", 0)), "invalidValuesIgnored": int(frame.attrs.get("invalidValuesIgnored", 0)), "outlierValuesIgnored": int(frame.attrs.get("outlierValuesIgnored", 0)), "inScopeRows": int(len(frame))}
+    return {"status": "ok", "hospitalId": hospital_id, "rowsImported": int(len(frame)), "proceduresAdded": int(frame.code.nunique()), "duplicatesIgnored": int(frame.attrs.get("duplicatesIgnored", 0)), "invalidValuesIgnored": int(frame.attrs.get("invalidValuesIgnored", 0)), "outlierValuesIgnored": int(frame.attrs.get("outlierValuesIgnored", 0)), "proceduresIgnored": int(frame.attrs.get("proceduresIgnored", 0)), "procedureRowsIgnored": int(frame.attrs.get("procedureRowsIgnored", 0)), "inScopeRows": int(len(frame))}

@@ -95,6 +95,10 @@ class ThreeHospitalApiTests(unittest.TestCase):
         self.assertEqual(cleaned.code.tolist(), ["72148"])
         self.assertEqual(cleaned.cash.tolist(), [1250.0])
         self.assertEqual(cleaned.attrs["invalidValuesIgnored"], 2)
+        many_codes = b"code,setting,cash\n" + b"".join(f"{70000 + i},outpatient,100\n".encode() for i in range(31))
+        limited = self.api.upload_frame(many_codes, "TEST", "Test", "", "2026-10-24", "prices.csv")
+        self.assertEqual(limited.code.nunique(), 30)
+        self.assertEqual(limited.attrs["proceduresIgnored"], 1)
 
     def test_admin_csv_upload_adds_a_hospital(self):
         import os

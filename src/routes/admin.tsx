@@ -31,7 +31,7 @@ function AdminPage() {
       const response = await fetch(`${API_URL}/api/admin/uploads`, { method: "POST", headers: { "X-Admin-Username": username, "X-Admin-Key": key }, body });
       const result = await response.json();
       if (!response.ok) throw new Error(result.detail || "Upload failed.");
-      setStatus(`${result.rowsImported} price rows and ${result.proceduresAdded} procedures saved for ${hospitalName}.${result.duplicatesIgnored ? ` ${result.duplicatesIgnored} repeated row${result.duplicatesIgnored === 1 ? "" : "s"} consolidated.` : ""}${result.invalidValuesIgnored ? ` ${result.invalidValuesIgnored} invalid price value${result.invalidValuesIgnored === 1 ? "" : "s"} ignored.` : ""}${result.outlierValuesIgnored ? ` ${result.outlierValuesIgnored} outlier value${result.outlierValuesIgnored === 1 ? "" : "s"} excluded.` : ""} Refresh any open data pages to see them.`);
+      setStatus(`${result.rowsImported} price rows and ${result.proceduresAdded} procedures saved for ${hospitalName}.${result.duplicatesIgnored ? ` ${result.duplicatesIgnored} repeated row${result.duplicatesIgnored === 1 ? "" : "s"} consolidated.` : ""}${result.invalidValuesIgnored ? ` ${result.invalidValuesIgnored} invalid price value${result.invalidValuesIgnored === 1 ? "" : "s"} ignored.` : ""}${result.outlierValuesIgnored ? ` ${result.outlierValuesIgnored} outlier value${result.outlierValuesIgnored === 1 ? "" : "s"} excluded.` : ""}${result.proceduresIgnored ? ` ${result.proceduresIgnored} less-common operation${result.proceduresIgnored === 1 ? "" : "s"} skipped.` : ""} Refresh any open data pages to see them.`);
     } catch (reason) { setStatus(null); setError(reason instanceof Error ? reason.message : "Upload failed."); }
   }
 
