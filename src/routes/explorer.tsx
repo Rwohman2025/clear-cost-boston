@@ -39,11 +39,11 @@ const PRICE_TYPES: { value: PriceType; label: string }[] = [
 function Explorer() {
   const { data: procedures } = useSuspenseQuery(proceduresQuery());
   const { data: hospitals } = useSuspenseQuery(hospitalsQuery());
-  const availableHospitalsQuery = useQuery({ ...hospitalsQuery("", filters.code), placeholderData: keepPreviousData });
-  const availableHospitals = availableHospitalsQuery.data ?? hospitals;
   const { data: payers } = useSuspenseQuery(payersQuery());
   const [filters, setFilters] = useState<PriceFilters>(DEFAULT);
   const [hospitalId, setHospitalId] = useState("all");
+  const availableHospitalsQuery = useQuery({ ...hospitalsQuery("", filters.code), placeholderData: keepPreviousData });
+  const availableHospitals = availableHospitalsQuery.data ?? hospitals;
   const effective: PriceFilters = hospitalId === "all" ? filters : { ...filters, hospitalIds: [hospitalId] };
   const q = useQuery({ ...comparisonQuery(effective), placeholderData: keepPreviousData });
   const procedure = procedures.find((p) => p.code === filters.code);
