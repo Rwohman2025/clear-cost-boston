@@ -22,7 +22,7 @@ import numpy as np
 from fastapi import FastAPI, File, Form, Header, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
-from config import CATEGORIES, DB, PROCS, XLSX
+from config import CATEGORIES, DB, PLACEHOLDER_VALUES, PRICE_MAX, PROCS, XLSX
 
 # Hospital identity and source metadata. The spreadsheet carries no address or bed data, so only
 # facts we can state are included; `last_published` comes from the spreadsheet's "Sources and notes".
@@ -162,9 +162,9 @@ def upload_frame(contents: bytes, hospital_code: str, hospital_name: str, system
         # prices remain visible for either selection rather than being discarded.
         "setting": col("setting", "both").astype(str).str.strip().replace("", "both"),
         "billing_class": col("billing_class", ""),
-        "gross": pd.to_numeric(col("gross"), errors="coerce"),
-        "cash": pd.to_numeric(col("cash"), errors="coerce"),
-        "amount": pd.to_numeric(col("amount"), errors="coerce"),
+        "gross": pd.to_numeric(col("gross").astype(str).str.replace(r"[$,]", "", regex=True), errors="coerce"),
+        "cash": pd.to_numeric(col("cash").astype(str).str.replace(r"[$,]", "", regex=True), errors="coerce"),
+        "amount": pd.to_numeric(col("amount").astype(str).str.replace(r"[$,]", "", regex=True), errors="coerce"),
         "methodology": col("methodology", "admin-upload"),
         "est_pct": pd.to_numeric(col("est_pct"), errors="coerce"),
         "median_amt": pd.to_numeric(col("median_amt"), errors="coerce"),
@@ -173,15 +173,33 @@ def upload_frame(contents: bytes, hospital_code: str, hospital_name: str, system
     })
     frame = frame[frame.code.str.match(r"^[A-Za-z0-9]{5}", na=False)].copy()
     frame["code"] = frame.code.str.upper().str.extract(r"^([A-Z0-9]{5})")[0]
+
+    # Clean false/placeholder prices before they reach the database. We remove rather
+    # than replace values, so published data never gets silently invented or capped.
+    invalid_values = 0
+    outlier_values = 0
+    for price_column in ("gross", "cash", "amount"):
+        prices = frame[price_column]
+        placeholder = prices.le(0) | prices.isin(PLACEHOLDER_VALUES) | prices.ge(PRICE_MAX)
+        invalid_values += int(placeholder.fillna(False).sum())
+        frame.loc[placeholder, price_column] = np.nan
+        # A 20× deviation from other published values for the same procedure is
+        # excluded from comparisons and reported as an upload outlier.
+        medians = frame.groupby(["code", "setting"])[price_column].transform("median")
+        extreme = prices.notna() & medians.notna() & ((prices > 20 * medians) | (prices < medians / 20))
+        outlier_values += int(extreme.fillna(False).sum())
+        frame.loc[extreme, price_column] = np.nan
     frame = frame[frame[["gross", "cash", "amount"]].notna().any(axis=1)].copy()
     if frame.empty:
-        raise HTTPException(422, "No rows contained a five-character CPT or HCPCS code with a price.")
+        raise HTTPException(422, "No rows contained a five-character CPT or HCPCS code with a usable price.")
     duplicate_columns = ["code", "payer_raw", "plan_raw", "setting", "gross", "cash", "amount"]
     duplicate_count = int(frame.duplicated(subset=duplicate_columns).sum())
     # Large hospital files commonly contain repeated price rows. Keep one copy so
     # they don't distort medians, while retaining same-code rows with different payers or prices.
     frame = frame.drop_duplicates(subset=duplicate_columns).copy()
     frame.attrs["duplicatesIgnored"] = duplicate_count
+    frame.attrs["invalidValuesIgnored"] = invalid_values
+    frame.attrs["outlierValuesIgnored"] = outlier_values
     return frame
 
 
@@ -471,4 +489,4 @@ async def admin_upload(
     load.cache_clear()
     procedure_catalog.cache_clear()
     refresh_hospitals()
-    return {"status": "ok", "hospitalId": hospital_id, "rowsImported": int(len(frame)), "proceduresAdded": int(frame.code.nunique()), "duplicatesIgnored": int(frame.attrs.get("duplicatesIgnored", 0)), "inScopeRows": int(len(frame))}
+    return {"status": "ok", "hospitalId": hospital_id, "rowsImported": int(len(frame)), "proceduresAdded": int(frame.code.nunique()), "duplicatesIgnored": int(frame.attrs.get("duplicatesIgnored", 0)), "invalidValuesIgnored": int(frame.attrs.get("invalidValuesIgnored", 0)), "outlierValuesIgnored": int(frame.attrs.get("outlierValuesIgnored", 0)), "inScopeRows": int(len(frame))}

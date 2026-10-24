@@ -91,6 +91,10 @@ class ThreeHospitalApiTests(unittest.TestCase):
             self.assertEqual(response.status_code, 200)
             self.assertEqual(len(response.json()), 25)
         self.assertEqual(self.client.get("/api/procedures/invalid").status_code, 404)
+        cleaned = self.api.upload_frame(b'code,setting,cash\n72148,outpatient,"$1,250"\n72149,outpatient,0\n72150,outpatient,9999999\n', "TEST", "Test", "", "2026-10-24", "prices.csv")
+        self.assertEqual(cleaned.code.tolist(), ["72148"])
+        self.assertEqual(cleaned.cash.tolist(), [1250.0])
+        self.assertEqual(cleaned.attrs["invalidValuesIgnored"], 2)
 
     def test_admin_csv_upload_adds_a_hospital(self):
         import os
