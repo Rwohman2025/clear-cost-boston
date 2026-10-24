@@ -119,6 +119,9 @@ def upload_frame(contents: bytes, hospital_code: str, hospital_name: str, system
     frame = frame[frame.code.str.match(r"^[A-Za-z0-9]{5}", na=False)].copy()
     if frame.empty:
         raise HTTPException(422, "No rows contained a five-character CPT or HCPCS code.")
+    duplicate_count = int(frame.duplicated(subset=["code", "payer_raw", "plan_raw", "setting", "gross", "cash", "amount"]).sum())
+    if duplicate_count:
+        raise HTTPException(422, f"CSV contains {duplicate_count} repeated pricing row(s). Remove repeats before uploading.")
     return frame
 
 

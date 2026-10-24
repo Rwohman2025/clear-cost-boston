@@ -92,7 +92,12 @@ class ThreeHospitalApiTests(unittest.TestCase):
         os.environ["ADMIN_API_KEY"] = "test-admin-key"
         os.environ["ADMIN_USERNAME"] = "test-admin"
         csv = b"code,description,payer,setting,gross,cash,negotiated\n45385,Colonoscopy,Blue Cross Blue Shield,outpatient,2500,900,1100\n"
-        response = self.client.post("/api/admin/uploads", headers={"X-Admin-Username": "test-admin", "X-Admin-Key": "test-admin-key"}, data={
+        headers = {"X-Admin-Username": "test-admin", "X-Admin-Key": "test-admin-key"}
+        duplicate = self.client.post("/api/admin/uploads", headers=headers, data={
+            "hospital_name": "Test Hospital", "hospital_code": "TEST", "published": "2026-10-24",
+        }, files={"file": ("repeat.csv", csv + csv.split(b"\n", 1)[1], "text/csv")})
+        self.assertEqual(duplicate.status_code, 422)
+        response = self.client.post("/api/admin/uploads", headers=headers, data={
             "hospital_name": "Test Hospital", "hospital_code": "TEST", "published": "2026-10-24",
         }, files={"file": ("test.csv", csv, "text/csv")})
         self.assertEqual(response.status_code, 200, response.text)
