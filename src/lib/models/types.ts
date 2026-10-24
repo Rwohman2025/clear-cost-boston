@@ -15,6 +15,11 @@ export interface Hospital {
   shortName: string;
   neighborhood: string;
   city: string;
+  /** Street address supplied by the hospital or uploader. */
+  address: string;
+  /** Saved from the exact street address for the hospital map. */
+  latitude: number | null;
+  longitude: number | null;
   type: HospitalType;
   /** null when the source files don't say (real data carries no bed counts). */
   beds: number | null;

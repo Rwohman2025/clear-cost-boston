@@ -13,6 +13,9 @@ import secrets
 import io
 import zipfile
 import runpy
+import json
+from urllib.parse import urlencode
+from urllib.request import Request, urlopen
 from pathlib import Path
 from datetime import date, datetime
 from functools import lru_cache
@@ -28,13 +31,13 @@ from config import CATEGORIES, DB, PLACEHOLDER_VALUES, PRICE_MAX, PROCS, XLSX
 # facts we can state are included; `last_published` comes from the spreadsheet's "Sources and notes".
 DEFAULT_HOSPITALS = {
     "bidmc": dict(code="BIDMC", name="Beth Israel Deaconess Medical Center", shortName="BIDMC",
-                  neighborhood="Longwood Medical Area", published="2026-04-01",
+                  neighborhood="Longwood Medical Area", address="330 Brookline Ave, Boston, MA 02215", latitude=42.3398, longitude=-71.1069, published="2026-04-01",
                   source="hospital_prices_flattened.zip"),
     "mgh": dict(code="MGH", name="Massachusetts General Hospital", shortName="MGH",
-                neighborhood="West End", published="2026-03-27",
+                neighborhood="West End", address="55 Fruit St, Boston, MA 02114", latitude=42.3626, longitude=-71.0694, published="2026-03-27",
                 source="042697983_Massachusetts-General-Hospital_StandardCharges.zip"),
     "bwh": dict(code="BWH", name="Brigham and Women's Hospital", shortName="BWH",
-                neighborhood="Mission Hill", published="2026-03-27",
+                neighborhood="Mission Hill", address="75 Francis St, Boston, MA 02115", latitude=42.3359, longitude=-71.1063, published="2026-03-27",
                 source="042312909_Brigham-and-Womens-Hospital_StandardCharges.zip"),
 }
 HOSPITALS = dict(DEFAULT_HOSPITALS)
@@ -49,24 +52,29 @@ def ensure_admin_tables():
     con = duckdb.connect(DB)
     con.execute("""create table if not exists hospital_registry (
         id varchar primary key, code varchar, name varchar, short_name varchar, neighborhood varchar,
-        city varchar, source varchar, published varchar, uploaded_at timestamp default current_timestamp
+        city varchar, address varchar, latitude double, longitude double, source varchar, published varchar, uploaded_at timestamp default current_timestamp
     )""")
+    existing = {row[0] for row in con.execute("select name from pragma_table_info('hospital_registry')").fetchall()}
+    for column, definition in (("address", "varchar"), ("latitude", "double"), ("longitude", "double")):
+        if column not in existing:
+            con.execute(f"alter table hospital_registry add column {column} {definition}")
     con.close()
 
 
 def refresh_hospitals():
     """Merge persistent admin-uploaded hospitals into the built-in starter catalog."""
     global HOSPITALS, BY_CODE
+    ensure_admin_tables()
     start_empty = os.environ.get("START_WITH_EMPTY_CATALOG", "").lower() in {"1", "true", "yes"}
     catalog = {} if start_empty else dict(DEFAULT_HOSPITALS)
     try:
         con = duckdb.connect(DB, read_only=True)
-        rows = con.execute("select id, code, name, short_name, neighborhood, city, source, published from hospital_registry").fetchall()
+        rows = con.execute("select id, code, name, short_name, neighborhood, city, address, latitude, longitude, source, published from hospital_registry").fetchall()
         con.close()
     except duckdb.Error:
         rows = []
-    for hid, code, name, short_name, neighborhood, city, source, published in rows:
-        catalog[hid] = dict(code=code, name=name, shortName=short_name or code, neighborhood=neighborhood or "Greater Boston", published=published or date.today().isoformat(), source=source or "Admin CSV upload", city=city or "Boston")
+    for hid, code, name, short_name, neighborhood, city, address, latitude, longitude, source, published in rows:
+        catalog[hid] = dict(code=code, name=name, shortName=short_name or code, neighborhood=neighborhood or "Greater Boston", published=published or date.today().isoformat(), source=source or "Admin CSV upload", city=city or "Boston", address=address or "", latitude=latitude, longitude=longitude)
     HOSPITALS = catalog
     BY_CODE = {h["code"]: hid for hid, h in catalog.items()}
 
@@ -87,7 +95,20 @@ def normalize_id(value: str) -> str:
     return result
 
 
-def normalized_column(value: object) -> str:
+def geocode_address(address: str) -> tuple[float, float]:
+    """Resolve a submitted hospital street address once, then keep its coordinates in our registry."""
+    query = urlencode({"q": address, "format": "jsonv2", "limit": 1, "countrycodes": "us"})
+    request = Request(f"https://nominatim.openstreetmap.org/search?{query}", headers={"User-Agent": "ClearCostBoston/1.0 (hospital price transparency map)"})
+    try:
+        with urlopen(request, timeout=10) as response:
+            matches = json.load(response)
+        if matches:
+            return float(matches[0]["lat"]), float(matches[0]["lon"])
+    except Exception as error:
+        raise HTTPException(422, "We couldn't locate that address. Check the street address and try again.") from error
+    raise HTTPException(422, "We couldn't locate that address. Check the street address and try again.")
+
+def normalized_column(value: object):
     return re.sub(r"[^a-z0-9]+", "_", str(value).lower()).strip("_")
 
 
@@ -262,6 +283,7 @@ def slug(s: str) -> str:
 def hospital_json(hid: str) -> dict:
     h = HOSPITALS[hid]
     return dict(id=hid, name=h["name"], shortName=h["shortName"], neighborhood=h["neighborhood"], city=h.get("city", "Boston"),
+                address=h.get("address", ""), latitude=clean_num(h.get("latitude")), longitude=clean_num(h.get("longitude")),
                 type="Academic medical center", beds=None, sourceUrl=h["source"], sourceFormat="CSV",
                 lastPublished=h["published"], lastRetrieved=retrieved_at())
 
@@ -453,6 +475,9 @@ async def admin_upload(
     system: str = Form(""),
     neighborhood: str = Form("Greater Boston"),
     city: str = Form("Boston"),
+    address: str = Form(""),
+    latitude: str = Form(""),
+    longitude: str = Form(""),
     published: str = Form(""),
     replace: bool = Form(False),
     x_admin_username: str | None = Header(None),
@@ -471,6 +496,13 @@ async def admin_upload(
     except ValueError as error:
         raise HTTPException(422, "Published date must be YYYY-MM-DD.") from error
     frame = upload_frame(await file.read(), code, hospital_name.strip(), system.strip(), published, file.filename)
+    address = address.strip()
+    try:
+        coordinates = (float(latitude), float(longitude)) if latitude.strip() and longitude.strip() else None
+    except ValueError as error:
+        raise HTTPException(422, "Coordinates must be valid numbers.") from error
+    if coordinates is None and address:
+        coordinates = geocode_address(address)
     ensure_admin_tables()
     con = duckdb.connect(DB)
     try:
@@ -484,7 +516,7 @@ async def admin_upload(
             con.execute("delete from hospital_registry where id = ?", [hospital_id])
         con.register("uploaded_rows", frame)
         con.execute("insert into raw select * from uploaded_rows")
-        con.execute("insert into hospital_registry (id, code, name, short_name, neighborhood, city, source, published) values (?, ?, ?, ?, ?, ?, ?, ?)", [hospital_id, code, hospital_name.strip(), code, neighborhood.strip(), city.strip(), file.filename, published])
+        con.execute("insert into hospital_registry (id, code, name, short_name, neighborhood, city, address, latitude, longitude, source, published) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", [hospital_id, code, hospital_name.strip(), code, neighborhood.strip(), city.strip(), address, coordinates[0] if coordinates else None, coordinates[1] if coordinates else None, file.filename, published])
         con.execute("commit")
     except HTTPException:
         con.execute("rollback")

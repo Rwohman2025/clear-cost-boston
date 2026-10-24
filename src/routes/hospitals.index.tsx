@@ -2,6 +2,7 @@ import { useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { keepPreviousData, useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { Building2, Search } from "lucide-react";
+import { HospitalMap } from "@/components/hospitals/HospitalMap";
 import { hospitalsQuery, qualityQuery } from "@/lib/api/queries";
 import { EmptyState, ErrorState, LoadingState, PageHeader, ScorePill, SyntheticBanner } from "@/components/common";
 import { Input } from "@/components/ui/input";
@@ -38,6 +39,8 @@ function Directory() {
         : !list.data ? <LoadingState />
         : list.data.length === 0 ? <EmptyState title="No hospitals found" description={`Nothing matches "${q}".`} />
         : (
+          <>
+          <HospitalMap hospitals={list.data} />
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {list.data.map((h) => {
               const s = score(h.id);
@@ -63,6 +66,7 @@ function Directory() {
               );
             })}
           </div>
+          </>
         )}
     </div>
   );
