@@ -5,11 +5,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export function PageHeader({ title, description, actions, eyebrow }: { title: string; description?: ReactNode; actions?: ReactNode; eyebrow?: string }) {
   return (
-    <div className="mb-8 flex flex-col gap-3 border-b border-border/70 pb-6 sm:flex-row sm:items-end sm:justify-between animate-rise">
-      <div>
-        {eyebrow && <div className="mb-1 text-xs font-medium uppercase tracking-wider text-primary">{eyebrow}</div>}
-        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{title}</h1>
-        {description && <p className="mt-1.5 max-w-2xl text-sm text-muted-foreground">{description}</p>}
+    <div className="mb-7 flex flex-col gap-4 border-b border-border/70 pb-6 sm:mb-8 sm:flex-row sm:items-end sm:justify-between animate-rise">
+      <div className="min-w-0">
+        {eyebrow && <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-primary">{eyebrow}</div>}
+        <h1 className="text-3xl font-semibold leading-tight tracking-tight sm:text-4xl">{title}</h1>
+        {description && <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">{description}</p>}
       </div>
       {actions}
     </div>
@@ -18,7 +18,7 @@ export function PageHeader({ title, description, actions, eyebrow }: { title: st
 
 export function Card({ className, children, title, subtitle, action }: { className?: string; children: ReactNode; title?: string; subtitle?: string; action?: ReactNode }) {
   return (
-    <section className={cn("card-surface p-5", className)}>
+    <section className={cn("card-surface p-4 sm:p-5", className)}>
       {(title || action) && (
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>

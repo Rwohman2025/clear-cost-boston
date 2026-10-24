@@ -219,12 +219,21 @@ def upload_frame(contents: bytes, hospital_code: str, hospital_name: str, system
     # Large hospital files commonly contain repeated price rows. Keep one copy so
     # they don't distort medians, while retaining same-code rows with different payers or prices.
     frame = frame.drop_duplicates(subset=duplicate_columns).copy()
+    # The demo only compares procedures in the supported reference catalog. Ignoring
+    # the rest prevents an unrelated hospital-file line item from creating a partial
+    # procedure record and pulling down the displayed coverage score.
+    supported_codes = set(PROCS)
+    unsupported_codes = set(frame.loc[~frame.code.isin(supported_codes), "code"].dropna())
+    unsupported_rows = int((~frame.code.isin(supported_codes)).sum())
+    frame = frame[frame.code.isin(supported_codes)].copy()
+    if frame.empty:
+        raise HTTPException(422, "No rows matched one of ClearCost's supported procedures.")
     # Hospital files don't report patient volumes. Rows published per operation are
-    # the best available on-file proxy for which operations are most broadly listed.
+    # the best available on-file proxy for which supported operations are most broadly listed.
     procedure_limit = int(os.environ.get("PROCEDURE_LIMIT", "30"))
     ranked_codes = frame.groupby("code").size().sort_values(ascending=False, kind="stable").head(procedure_limit).index
-    ignored_procedures = int(frame.code.nunique() - len(ranked_codes))
-    ignored_procedure_rows = int((~frame.code.isin(ranked_codes)).sum())
+    ignored_procedures = len(unsupported_codes) + int(frame.code.nunique() - len(ranked_codes))
+    ignored_procedure_rows = unsupported_rows + int((~frame.code.isin(ranked_codes)).sum())
     frame = frame[frame.code.isin(ranked_codes)].copy()
     frame.attrs["duplicatesIgnored"] = duplicate_count
     frame.attrs["invalidValuesIgnored"] = invalid_values

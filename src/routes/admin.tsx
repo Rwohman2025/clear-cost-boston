@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { createFileRoute } from "@tanstack/react-router";
+import { Upload } from "lucide-react";
 import { Card, ErrorState, PageHeader } from "@/components/common";
 import { API_URL } from "@/lib/api/queries";
 
@@ -21,29 +22,91 @@ function AdminPage() {
   const [replace, setReplace] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const uploading = status === "Uploading and validating…";
 
   async function upload(event: React.FormEvent) {
     event.preventDefault();
     if (!file) return setError("Choose a hospital price CSV or ZIP first.");
-    setError(null); setStatus("Uploading and validating…");
+    setError(null);
+    setStatus("Uploading and validating…");
     const body = new FormData();
-    body.append("file", file); body.append("hospital_name", hospitalName); body.append("hospital_code", hospitalCode);
-    body.append("system", system); body.append("neighborhood", neighborhood); body.append("city", city); body.append("address", address); body.append("published", published); body.append("replace", String(replace));
+    body.append("file", file);
+    body.append("hospital_name", hospitalName);
+    body.append("hospital_code", hospitalCode);
+    body.append("system", system);
+    body.append("neighborhood", neighborhood);
+    body.append("city", city);
+    body.append("address", address);
+    body.append("published", published);
+    body.append("replace", String(replace));
     try {
-      const response = await fetch(`${API_URL}/api/admin/uploads`, { method: "POST", headers: { "X-Admin-Username": username, "X-Admin-Key": key }, body });
+      const response = await fetch(`${API_URL}/api/admin/uploads`, {
+        method: "POST",
+        headers: { "X-Admin-Username": username, "X-Admin-Key": key },
+        body,
+      });
       const result = await response.json();
       if (!response.ok) throw new Error(result.detail || "Upload failed.");
-      setStatus(`${result.rowsImported} price rows and ${result.proceduresAdded} procedures saved for ${hospitalName}.${result.duplicatesIgnored ? ` ${result.duplicatesIgnored} repeated row${result.duplicatesIgnored === 1 ? "" : "s"} consolidated.` : ""}${result.invalidValuesIgnored ? ` ${result.invalidValuesIgnored} invalid price value${result.invalidValuesIgnored === 1 ? "" : "s"} ignored.` : ""}${result.outlierValuesIgnored ? ` ${result.outlierValuesIgnored} outlier value${result.outlierValuesIgnored === 1 ? "" : "s"} excluded.` : ""}${result.proceduresIgnored ? ` ${result.proceduresIgnored} less-common operation${result.proceduresIgnored === 1 ? "" : "s"} skipped.` : ""} Refresh any open data pages to see them.`);
-    } catch (reason) { setStatus(null); setError(reason instanceof Error ? reason.message : "Upload failed."); }
+      setStatus(`${result.rowsImported} price rows and ${result.proceduresAdded} procedures saved for ${hospitalName}.${result.duplicatesIgnored ? ` ${result.duplicatesIgnored} repeated row${result.duplicatesIgnored === 1 ? "" : "s"} consolidated.` : ""}${result.invalidValuesIgnored ? ` ${result.invalidValuesIgnored} invalid price value${result.invalidValuesIgnored === 1 ? "" : "s"} ignored.` : ""}${result.outlierValuesIgnored ? ` ${result.outlierValuesIgnored} outlier value${result.outlierValuesIgnored === 1 ? "" : "s"} excluded.` : ""}${result.proceduresIgnored ? ` ${result.proceduresIgnored} less-common operation${result.proceduresIgnored === 1 ? "" : "s"} skipped.` : ""} Refresh open data pages to see the new hospital.`);
+    } catch (reason) {
+      setStatus(null);
+      setError(reason instanceof Error ? reason.message : "Upload failed.");
+    }
   }
 
-  return <div className="space-y-6"><PageHeader eyebrow="Admin" title="Import hospital pricing" description="Upload a hospital price CSV or a ZIP containing one to add its procedures and published prices. Your key is sent only to the API for this request." />
-    <Card title="CSV format" subtitle="Upload a CSV directly or a ZIP containing one CSV. Use this standard hospital-price-file format or the simpler ClearCost column names."><pre className="overflow-x-auto rounded-md bg-muted p-3 text-xs">{template}</pre><p className="mt-3 text-xs text-muted-foreground">The importer recognizes common CMS headers such as <strong>billing_code</strong>, <strong>billing_code_description</strong>, and standard charge columns. It adds valid five-character CPT/HCPCS operations automatically. Add the hospital’s street address so it can be placed exactly on the hospital map. Setting is optional and applies to both care settings when missing. Re-uploading the same hospital requires selecting “Replace existing upload.”</p></Card>
-    <Card title="Upload a hospital CSV"><form className="space-y-4" onSubmit={upload}>
-      <div className="grid gap-4 sm:grid-cols-2"><Field label="Username"><input required value={username} onChange={e => setUsername(e.target.value)} className="input" /></Field><Field label="Password"><input required type="password" value={key} onChange={e => setKey(e.target.value)} className="input" /></Field><Field label="Hospital price file"><input required type="file" accept=".csv,.zip,text/csv,application/zip" onChange={e => setFile(e.target.files?.[0] ?? null)} className="block w-full text-sm" /></Field><Field label="Hospital name"><input required value={hospitalName} onChange={e => setHospitalName(e.target.value)} className="input" placeholder="Boston Medical Center" /></Field><Field label="Hospital code"><input required value={hospitalCode} onChange={e => setHospitalCode(e.target.value)} className="input" placeholder="BMC" /></Field><Field label="Health system"><input value={system} onChange={e => setSystem(e.target.value)} className="input" placeholder="Optional" /></Field><Field label="Neighborhood"><input value={neighborhood} onChange={e => setNeighborhood(e.target.value)} className="input" /></Field><Field label="City"><input required value={city} onChange={e => setCity(e.target.value)} className="input" placeholder="Boston" /></Field><Field label="Street address"><input required value={address} onChange={e => setAddress(e.target.value)} className="input" placeholder="330 Brookline Ave, Boston, MA 02215" /></Field><Field label="Published date"><input required type="date" value={published} onChange={e => setPublished(e.target.value)} className="input" /></Field></div>
-      <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={replace} onChange={e => setReplace(e.target.checked)} /> Replace an existing upload with this hospital code</label>
-      <button className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50" disabled={!status && !file ? false : false}>{status === "Uploading and validating…" ? "Uploading…" : "Upload CSV"}</button>
-      {status && <p className="text-sm text-success">{status}</p>}{error && <ErrorState message={error} />}
-    </form></Card></div>;
+  return (
+    <div className="space-y-6">
+      <PageHeader eyebrow="Admin" title="Import hospital pricing" description="Add a CSV or ZIP from a hospital’s published pricing file. The importer cleans invalid values, merges repeats, and keeps the 30 most common operations." />
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
+        <Card title="Upload a hospital price file" subtitle="Fields marked by the browser as required are needed to create a complete hospital listing.">
+          <form className="space-y-6" onSubmit={upload}>
+            <section>
+              <h3 className="text-sm font-semibold">Sign in</h3>
+              <div className="mt-3 grid gap-4 sm:grid-cols-2">
+                <Field label="Username"><input required value={username} onChange={(event) => setUsername(event.target.value)} className="input" /></Field>
+                <Field label="Password"><input required type="password" value={key} onChange={(event) => setKey(event.target.value)} className="input" /></Field>
+              </div>
+            </section>
+            <section className="border-t pt-5">
+              <h3 className="text-sm font-semibold">Hospital details</h3>
+              <div className="mt-3 grid gap-4 sm:grid-cols-2">
+                <Field label="Hospital name"><input required value={hospitalName} onChange={(event) => setHospitalName(event.target.value)} className="input" placeholder="Boston Medical Center" /></Field>
+                <Field label="Hospital code"><input required value={hospitalCode} onChange={(event) => setHospitalCode(event.target.value)} className="input" placeholder="BMC" /></Field>
+                <Field label="Health system"><input value={system} onChange={(event) => setSystem(event.target.value)} className="input" placeholder="Optional" /></Field>
+                <Field label="Published date"><input required type="date" value={published} onChange={(event) => setPublished(event.target.value)} className="input" /></Field>
+                <Field label="Neighborhood"><input value={neighborhood} onChange={(event) => setNeighborhood(event.target.value)} className="input" /></Field>
+                <Field label="City"><input required value={city} onChange={(event) => setCity(event.target.value)} className="input" placeholder="Boston" /></Field>
+                <div className="sm:col-span-2"><Field label="Street address"><input required value={address} onChange={(event) => setAddress(event.target.value)} className="input" placeholder="330 Brookline Ave, Boston, MA 02215" /></Field></div>
+              </div>
+            </section>
+            <section className="border-t pt-5">
+              <h3 className="text-sm font-semibold">Price file</h3>
+              <div className="mt-3 rounded-lg border border-dashed bg-muted/40 p-4">
+                <Field label="CSV or ZIP file"><input required type="file" accept=".csv,.zip,text/csv,application/zip" onChange={(event) => setFile(event.target.files?.[0] ?? null)} className="block w-full text-sm" /></Field>
+                {file && <p className="mt-2 text-xs text-muted-foreground">Selected: <span className="font-medium text-foreground">{file.name}</span></p>}
+              </div>
+              <label className="mt-4 flex items-start gap-2.5 text-sm"><input type="checkbox" checked={replace} onChange={(event) => setReplace(event.target.checked)} className="mt-1" /><span><span className="font-medium">Replace an existing upload</span><br /><span className="text-xs text-muted-foreground">Use this only when updating the same hospital code.</span></span></label>
+            </section>
+            <div className="flex flex-wrap items-center gap-3 border-t pt-5">
+              <button className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50" disabled={uploading || !file}>
+                <Upload className="h-4 w-4" />{uploading ? "Uploading…" : "Upload pricing file"}
+              </button>
+              {status && <p className="max-w-xl text-sm leading-relaxed text-success">{status}</p>}
+            </div>
+            {error && <ErrorState message={error} />}
+          </form>
+        </Card>
+        <div className="space-y-5">
+          <Card title="What the importer does">
+            <ul className="space-y-3 text-sm leading-relaxed text-muted-foreground"><li>Accepts a CSV or a ZIP containing one CSV.</li><li>Removes zero, placeholder, and extreme outlier prices.</li><li>Combines repeated prices and limits each upload to 30 operations.</li><li>Uses the street address to place the hospital on the map.</li></ul>
+          </Card>
+          <Card title="CSV columns" subtitle="CMS-standard headers are recognized automatically."><pre className="overflow-x-auto rounded-md bg-muted p-3 text-xs leading-relaxed">{template}</pre></Card>
+        </div>
+      </div>
+    </div>
+  );
 }
-function Field({ label, children }: { label: string; children: ReactNode }) { return <label className="grid gap-1.5 text-sm font-medium">{label}{children}</label>; }
+
+function Field({ label, children }: { label: string; children: ReactNode }) {
+  return <label className="grid gap-1.5 text-sm font-medium">{label}{children}</label>;
+}

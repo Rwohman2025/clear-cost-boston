@@ -91,13 +91,13 @@ class ThreeHospitalApiTests(unittest.TestCase):
             self.assertEqual(response.status_code, 200)
             self.assertEqual(len(response.json()), 25)
         self.assertEqual(self.client.get("/api/procedures/invalid").status_code, 404)
-        cleaned = self.api.upload_frame(b'code,setting,cash\n72148,outpatient,"$1,250"\n72149,outpatient,0\n72150,outpatient,9999999\n', "TEST", "Test", "", "2026-10-24", "prices.csv")
-        self.assertEqual(cleaned.code.tolist(), ["72148"])
+        cleaned = self.api.upload_frame(b'code,setting,cash\n45385,outpatient,"$1,250"\n43248,outpatient,0\n46250,outpatient,9999999\n', "TEST", "Test", "", "2026-10-24", "prices.csv")
+        self.assertEqual(cleaned.code.tolist(), ["45385"])
         self.assertEqual(cleaned.cash.tolist(), [1250.0])
         self.assertEqual(cleaned.attrs["invalidValuesIgnored"], 2)
-        many_codes = b"code,setting,cash\n" + b"".join(f"{70000 + i},outpatient,100\n".encode() for i in range(31))
-        limited = self.api.upload_frame(many_codes, "TEST", "Test", "", "2026-10-24", "prices.csv")
-        self.assertEqual(limited.code.nunique(), 30)
+        mixed_codes = b"code,setting,cash\n45385,outpatient,100\n99999,outpatient,100\n"
+        limited = self.api.upload_frame(mixed_codes, "TEST", "Test", "", "2026-10-24", "prices.csv")
+        self.assertEqual(limited.code.tolist(), ["45385"])
         self.assertEqual(limited.attrs["proceduresIgnored"], 1)
 
     def test_admin_csv_upload_adds_a_hospital(self):
@@ -126,7 +126,7 @@ class ThreeHospitalApiTests(unittest.TestCase):
             "code": "45385", "priceType": "cash", "setting": "outpatient", "hospitalIds": "single",
         }).json()
         self.assertEqual(price["rows"][0]["amount"], 900.0)
-        bulk_csv = b"billing_code,billing_code_description,payer_name,standard_charge_discounted_cash\n72148,MRI lumbar spine,Blue Cross Blue Shield,750\n"
+        bulk_csv = b"billing_code,billing_code_description,payer_name,standard_charge_discounted_cash\n45385,Colonoscopy,Blue Cross Blue Shield,750\n"
         archive = io.BytesIO()
         with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED) as zipped:
             zipped.writestr("readme.txt", "Hospital price file")
@@ -136,11 +136,11 @@ class ThreeHospitalApiTests(unittest.TestCase):
         }, files={"file": ("standard-charges.zip", archive.getvalue(), "application/zip")})
         self.assertEqual(bulk.status_code, 200, bulk.text)
         self.assertEqual(bulk.json()["proceduresAdded"], 1)
-        procedure = self.client.get("/api/procedures/72148")
+        procedure = self.client.get("/api/procedures/45385")
         self.assertEqual(procedure.status_code, 200)
-        self.assertEqual(procedure.json()["name"], "MRI lumbar spine")
-        search = self.client.get("/api/procedures", params={"q": "lumbar"}).json()
-        self.assertEqual([p["code"] for p in search], ["72148"])
+        self.assertIn("COLONOSCOPY", procedure.json()["name"])
+        search = self.client.get("/api/procedures", params={"q": "colonoscopy"}).json()
+        self.assertEqual([p["code"] for p in search], ["45385"])
         con = __import__("duckdb").connect(config.DB)
         con.execute("delete from raw where hospital in ('TEST', 'SINGLE', 'BULK')")
         con.execute("delete from hospital_registry where id in ('test', 'single', 'bulk')")

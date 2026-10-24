@@ -80,7 +80,7 @@ function HospitalPage() {
             <Row k="Last retrieved" v={`${hospital.lastRetrieved} (${q.daysSinceRetrieved}d ago)`} />
             <div><dt className="text-muted-foreground">Completeness</dt><dd className="mt-1"><Meter value={q.completeness} /></dd></div>
             <div>
-              <dt className="text-muted-foreground">Source URL (placeholder)</dt>
+              <dt className="text-muted-foreground">Price file source</dt>
               <dd className="mt-1 break-all">{/^https?:\/\//.test(hospital.sourceUrl)
                 ? <a href={hospital.sourceUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-primary hover:underline">{hospital.sourceUrl}<ExternalLink className="h-3 w-3 shrink-0" /></a>
                 : <span>{hospital.sourceUrl}</span>}</dd>

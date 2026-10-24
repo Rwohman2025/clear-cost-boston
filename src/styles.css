@@ -108,7 +108,9 @@
     border-color: var(--color-border);
   }
   body {
+    min-width: 320px;
     background-color: var(--color-background);
+    background-image: radial-gradient(circle at top right, oklch(0.93 0.025 80 / 0.55), transparent 32rem);
     color: var(--color-foreground);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
@@ -149,5 +151,8 @@
   from { opacity: 0; transform: translateY(4px); }
   to { opacity: 1; transform: translateY(0); }
 }
-.input { width: 100%; border: 1px solid var(--input); border-radius: .375rem; background: var(--background); padding: .5rem .625rem; font-size: .875rem; }
-.input:focus { outline: 2px solid hsl(var(--ring)); outline-offset: 1px; }
+.input { width: 100%; min-height: 2.5rem; border: 1px solid var(--input); border-radius: .5rem; background: var(--card); padding: .5rem .75rem; font-size: .875rem; transition: border-color 160ms ease, box-shadow 160ms ease; }
+.input::placeholder { color: color-mix(in oklab, var(--muted-foreground) 75%, transparent); }
+.input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px color-mix(in oklab, var(--primary) 14%, transparent); }
+button, a { -webkit-tap-highlight-color: transparent; }
+button:not(:disabled) { cursor: pointer; }

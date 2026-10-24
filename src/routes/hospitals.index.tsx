@@ -11,7 +11,7 @@ export const Route = createFileRoute("/hospitals/")({
   head: () => ({
     meta: [
       { title: "Hospital Directory — ClearCost Boston" },
-      { name: "description", content: "Browse greater Boston hospitals, their pricing file coverage and data quality (synthetic demo data)." },
+      { name: "description", content: "Browse greater Boston hospitals, their pricing file coverage." },
       { property: "og:title", content: "Hospital Directory — ClearCost Boston" },
       { property: "og:description", content: "Searchable directory of Boston-area hospitals and their price transparency files." },
     ],
@@ -31,9 +31,9 @@ function Directory() {
     <div className="space-y-5">
       <PageHeader eyebrow="Hospitals" title="Hospital directory" description="Pricing file coverage and source details for each hospital." />
       <SyntheticBanner />
-      <div className="relative max-w-md">
+      <div className="relative max-w-xl">
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by name, city or neighborhood" className="h-10 bg-card pl-9" />
+        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by name, city or neighborhood" className="h-11 bg-card pl-9 shadow-sm" />
       </div>
       {list.isError ? <ErrorState message={(list.error as Error).message} onRetry={() => list.refetch()} />
         : !list.data ? <LoadingState />
@@ -45,7 +45,7 @@ function Directory() {
             {list.data.map((h) => {
               const s = score(h.id);
               return (
-                <Link key={h.id} to="/hospitals/$hospitalId" params={{ hospitalId: h.id }} className="card-surface card-hover group block p-5 animate-rise">
+                <Link key={h.id} to="/hospitals/$hospitalId" params={{ hospitalId: h.id }} className="card-surface card-hover group block p-4 sm:p-5 animate-rise">
                   <div className="flex items-start gap-3">
                     <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-secondary text-primary"><Building2 className="h-5 w-5" /></div>
                     <div className="min-w-0">

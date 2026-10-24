@@ -4,6 +4,7 @@ import { keepPreviousData, useQuery, useSuspenseQuery } from "@tanstack/react-qu
 import { DEFAULT_FILTERS as DEFAULT, comparisonQuery, hospitalsQuery, payersQuery, proceduresQuery } from "@/lib/api/queries";
 import type { PriceFilters, PriceType, Setting } from "@/lib/models/types";
 import { formatUSD } from "@/lib/stats";
+import { hospitalChartName } from "@/lib/hospital-names";
 import { Card, EmptyState, ErrorState, LoadingState, PageHeader, StatCard, SyntheticBanner } from "@/components/common";
 import { ProcedureSearch } from "@/components/explorer/ProcedureSearch";
 import { PriceTable } from "@/components/explorer/PriceTable";
@@ -49,6 +50,8 @@ function Explorer() {
   const procedure = procedures.find((p) => p.code === filters.code);
   const set = (patch: Partial<PriceFilters>) => setFilters((f) => ({ ...f, ...patch }));
   const priceLabel = PRICE_TYPES.find((p) => p.value === filters.priceType)!.label.toLowerCase();
+  const lowestHospital = q.data?.rows.find((row) => row.amount === q.data?.stats?.min)?.hospital;
+  const highestHospital = q.data?.rows.find((row) => row.amount === q.data?.stats?.max)?.hospital;
 
   return (
     <div className="space-y-5">
@@ -89,8 +92,8 @@ function Explorer() {
         <div className={q.isFetching ? "space-y-5 opacity-60 transition-opacity" : "space-y-5 transition-opacity"}>
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <StatCard tone="primary" label="Typical listed price" value={formatUSD(q.data.stats.median)} hint="The middle reported price" />
-            <StatCard label="Lowest listed price" value={formatUSD(q.data.stats.min)} hint={q.data.rows.find((r) => r.amount === q.data.stats!.min)?.hospital.shortName} />
-            <StatCard label="Highest listed price" value={formatUSD(q.data.stats.max)} hint={q.data.rows.find((r) => r.amount === q.data.stats!.max)?.hospital.shortName} />
+            <StatCard label="Lowest listed price" value={formatUSD(q.data.stats.min)} hint={lowestHospital ? hospitalChartName(lowestHospital) : undefined} />
+            <StatCard label="Highest listed price" value={formatUSD(q.data.stats.max)} hint={highestHospital ? hospitalChartName(highestHospital) : undefined} />
             <StatCard label="Difference from low to high" value={formatUSD(q.data.stats.max - q.data.stats.min)} hint={`${q.data.stats.count} hospitals reporting`} />
           </div>
 
@@ -105,7 +108,7 @@ function Explorer() {
               <Card title="What to know">
                 <ul className="space-y-2.5 text-xs">
                   <QualityLine ok={q.data.missingHospitals.length === 0}
-                    text={q.data.missingHospitals.length === 0 ? "Every selected hospital lists a price for this service." : `${q.data.missingHospitals.length} hospital${q.data.missingHospitals.length === 1 ? "" : "s"} did not list a usable price: ${q.data.missingHospitals.map((h) => h.shortName).join(", ")}.`} />
+                    text={q.data.missingHospitals.length === 0 ? "Every selected hospital lists a price for this service." : `${q.data.missingHospitals.length} hospital${q.data.missingHospitals.length === 1 ? "" : "s"} did not list a usable price: ${q.data.missingHospitals.map(hospitalChartName).join(", ")}.`} />
                   <QualityLine ok={q.data.rows.filter((r) => r.isOutlier).length === 0}
                     text={q.data.rows.filter((r) => r.isOutlier).length ? "One or more listed prices are much higher or lower than the others." : "No listed price stands far apart from the others."} />
                   <QualityLine ok={false} text="A listed hospital price may not match your final bill. Your care and insurance coverage affect what you pay." />

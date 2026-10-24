@@ -116,7 +116,7 @@ function RootComponent() {
               <SidebarTrigger />
               <div className="min-w-0 leading-tight"><div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-primary">ClearCost Boston</div><div className="hidden text-xs text-muted-foreground sm:block">A guide to published hospital prices</div></div>
             </header>
-            <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6 lg:px-8">
+            <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
               <Outlet />
             </main>
           </div>

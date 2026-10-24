@@ -5,7 +5,7 @@ export const Route = createFileRoute("/methodology")({
   head: () => ({
     meta: [
       { title: "Methodology — ClearCost Boston" },
-      { name: "description", content: "Planned normalization, comparison limits, and how data quality and comparability scores will be calculated." },
+      { name: "description", content: "How ClearCost cleans, compares, and explains hospital pricing data." },
       { property: "og:title", content: "Methodology — ClearCost Boston" },
       { property: "og:description", content: "How ClearCost Boston will normalize and compare hospital price data." },
     ],
@@ -24,7 +24,7 @@ const STEPS = [
 function Methodology() {
   return (
     <div>
-      <PageHeader eyebrow="Learn" title="Methodology" description="Planned approach. The current build demonstrates the interface with synthetic data." />
+      <PageHeader eyebrow="Learn" title="Methodology" description="How ClearCost standardizes hospital pricing files for fairer comparisons." />
       <div className="mb-8 grid gap-3 md:grid-cols-5">
         {STEPS.map(([t, d], i) => (
           <Card key={t} className="card-hover">
