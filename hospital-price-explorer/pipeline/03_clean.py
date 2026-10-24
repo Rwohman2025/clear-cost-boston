@@ -6,8 +6,13 @@ n0 = len(df)
 
 # --- codes: strip, uppercase, drop modifiers (e.g. "70551-26" or "70551|26")
 df["code"] = df["code"].astype(str).str.upper().str.extract(r"^([A-Z0-9]{5})")[0]
-df["in_scope"] = df["code"].isin(PROCS)
+# Keep every valid CPT/HCPCS code in an admin upload. The built-in catalog supplies
+# friendly names for the starter data; uploaded descriptions supply names for new codes.
+df["in_scope"] = df["code"].notna()
 df["proc"] = df["code"].map(PROCS)
+if "description" in df:
+    descriptions = df["description"].fillna("").astype(str).str.strip()
+    df["proc"] = descriptions.where(descriptions.ne(""), df["proc"])
 
 # --- payer: lowercase, strip punctuation, regex to canonical
 def norm_payer(*parts):

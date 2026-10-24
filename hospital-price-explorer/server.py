@@ -85,40 +85,79 @@ def normalize_id(value: str) -> str:
     return result
 
 
+def normalized_column(value: object) -> str:
+    return re.sub(r"[^a-z0-9]+", "_", str(value).lower()).strip("_")
+
+
 def upload_frame(contents: bytes, hospital_code: str, hospital_name: str, system: str, published: str):
-    if len(contents) > 25 * 1024 * 1024:
-        raise HTTPException(413, "CSV files must be 25 MB or smaller.")
+    max_bytes = int(os.environ.get("MAX_UPLOAD_MB", "100")) * 1024 * 1024
+    if len(contents) > max_bytes:
+        raise HTTPException(413, f"CSV files must be {max_bytes // 1024 // 1024} MB or smaller.")
     try:
         import pandas as pd
-        source = pd.read_csv(io.BytesIO(contents), dtype=str)
+        source = pd.read_csv(io.BytesIO(contents), dtype=str, low_memory=False)
     except Exception as error:
         raise HTTPException(422, f"Could not read CSV: {error}") from error
+
+    # The first aliases are the simple ClearCost template. The longer names are
+    # common CMS hospital transparency machine-readable-file headers.
     aliases = {
-        "cpt": "code", "cpt_code": "code", "hcpcs": "code", "procedure_code": "code",
-        "payer": "payer_raw", "payer_name": "payer_raw", "plan": "plan_raw", "plan_name": "plan_raw",
+        "cpt": "code", "cpt_code": "code", "hcpcs": "code", "hcpcs_code": "code",
+        "cpt_hcpcs": "code", "procedure_code": "code", "billing_code": "code",
+        "billing_code_code": "code", "billing_code_1": "code",
+        "description": "description", "procedure_description": "description",
+        "billing_code_description": "description", "item_description": "description",
+        "service_description": "description",
+        "payer": "payer_raw", "payer_name": "payer_raw", "payer_raw": "payer_raw",
+        "negotiated_rate_payer_name": "payer_raw", "plan": "plan_raw", "plan_name": "plan_raw",
+        "plan_raw": "plan_raw", "negotiated_rate_plan_name": "plan_raw",
         "negotiated": "amount", "negotiated_usd": "amount", "negotiated_rate": "amount",
-        "gross_usd": "gross", "gross_charge": "gross", "cash_usd": "cash", "cash_price": "cash",
-        "service_setting": "setting", "description": "description", "procedure_description": "description",
+        "standard_charge_negotiated": "amount", "standard_charge_negotiated_dollar": "amount",
+        "standard_charge_negotiated_dollar_amount": "amount",
+        "gross": "gross", "gross_usd": "gross", "gross_charge": "gross",
+        "standard_charge_gross": "gross", "standard_charge_gross_amount": "gross",
+        "cash": "cash", "cash_usd": "cash", "cash_price": "cash",
+        "discounted_cash": "cash", "standard_charge_discounted_cash": "cash",
+        "standard_charge_discounted_cash_amount": "cash",
+        "service_setting": "setting", "setting_type": "setting", "patient_type": "setting",
+        "site_of_service": "setting", "billing_class": "billing_class",
+        "standard_charge_negotiated_percentage": "est_pct", "methodology": "methodology",
     }
-    source.columns = [aliases.get(str(c).strip().lower().replace(" ", "_"), str(c).strip().lower().replace(" ", "_")) for c in source.columns]
-    if "code" not in source or "setting" not in source:
-        raise HTTPException(422, "CSV needs code (or CPT code) and setting columns.")
+    source.columns = [aliases.get(normalized_column(c), normalized_column(c)) for c in source.columns]
+    # Duplicate source columns are common in exports. Prefer the first populated value.
+    source = source.T.groupby(level=0).first().T
+    if "code" not in source:
+        raise HTTPException(422, "CSV needs a CPT/HCPCS or billing code column.")
     if not any(c in source for c in ("amount", "gross", "cash")):
         raise HTTPException(422, "CSV needs at least one price column: negotiated, gross, or cash.")
-    def col(name, default=None):
-        return source[name] if name in source else default
+
+    def col(name, default=""):
+        if name in source:
+            return source[name]
+        return pd.Series([default] * len(source), index=source.index)
+
     frame = pd.DataFrame({
-        "hospital": hospital_code, "system": system or hospital_name, "code": col("code").astype(str).str.strip(),
-        "description": col("description", ""), "payer_raw": col("payer_raw", ""), "plan_raw": col("plan_raw", ""),
-        "setting": col("setting").astype(str).str.strip(), "billing_class": col("billing_class", ""),
-        "gross": pd.to_numeric(col("gross"), errors="coerce"), "cash": pd.to_numeric(col("cash"), errors="coerce"),
-        "amount": pd.to_numeric(col("amount"), errors="coerce"), "methodology": col("methodology", "admin-upload"),
-        "est_pct": pd.to_numeric(col("est_pct"), errors="coerce"), "median_amt": pd.to_numeric(col("median_amt"), errors="coerce"),
-        "p10": pd.to_numeric(col("p10"), errors="coerce"), "p90": pd.to_numeric(col("p90"), errors="coerce"), "last_updated": published,
+        "hospital": hospital_code, "system": system or hospital_name,
+        "code": col("code").astype(str).str.strip(), "description": col("description", ""),
+        "payer_raw": col("payer_raw", ""), "plan_raw": col("plan_raw", ""),
+        # Some source files do not label an inpatient/outpatient setting. These
+        # prices remain visible for either selection rather than being discarded.
+        "setting": col("setting", "both").astype(str).str.strip().replace("", "both"),
+        "billing_class": col("billing_class", ""),
+        "gross": pd.to_numeric(col("gross"), errors="coerce"),
+        "cash": pd.to_numeric(col("cash"), errors="coerce"),
+        "amount": pd.to_numeric(col("amount"), errors="coerce"),
+        "methodology": col("methodology", "admin-upload"),
+        "est_pct": pd.to_numeric(col("est_pct"), errors="coerce"),
+        "median_amt": pd.to_numeric(col("median_amt"), errors="coerce"),
+        "p10": pd.to_numeric(col("p10"), errors="coerce"), "p90": pd.to_numeric(col("p90"), errors="coerce"),
+        "last_updated": published,
     })
     frame = frame[frame.code.str.match(r"^[A-Za-z0-9]{5}", na=False)].copy()
+    frame["code"] = frame.code.str.upper().str.extract(r"^([A-Z0-9]{5})")[0]
+    frame = frame[frame[["gross", "cash", "amount"]].notna().any(axis=1)].copy()
     if frame.empty:
-        raise HTTPException(422, "No rows contained a five-character CPT or HCPCS code.")
+        raise HTTPException(422, "No rows contained a five-character CPT or HCPCS code with a price.")
     duplicate_count = int(frame.duplicated(subset=["code", "payer_raw", "plan_raw", "setting", "gross", "cash", "amount"]).sum())
     if duplicate_count:
         raise HTTPException(422, f"CSV contains {duplicate_count} repeated pricing row(s). Remove repeats before uploading.")
@@ -140,6 +179,20 @@ def load():
     df["hid"] = df.hospital.map(BY_CODE)
     df["bad"] = df.flag_missing | df.flag_placeholder | df.flag_huge
     return df
+
+
+@lru_cache(maxsize=1)
+def procedure_catalog() -> dict[str, dict]:
+    """Procedure metadata from the catalog plus every valid code in uploaded data."""
+    df = load()
+    catalog = {}
+    for code, rows in df.groupby("code", dropna=True):
+        descriptions = rows.proc.dropna().astype(str).str.strip()
+        name = next((value for value in descriptions if value), PROCS.get(code, f"Procedure {code}"))
+        settings = set(rows.setting.dropna().astype(str).str.lower())
+        default = "outpatient" if "outpatient" in settings or "both" in settings else "inpatient"
+        catalog[code] = dict(code=code, codeType="CPT", name=name, category=CATEGORIES.get(code, "Other services"), defaultSetting=default)
+    return catalog
 
 
 def retrieved_at() -> str:
@@ -165,8 +218,7 @@ def hospital_json(hid: str) -> dict:
 
 
 def procedure_json(code: str) -> dict:
-    return dict(code=code, codeType="CPT", name=PROCS[code], category=CATEGORIES.get(code, "Procedure"),
-                defaultSetting="outpatient")
+    return procedure_catalog()[code]
 
 
 def payer_list() -> list[dict]:
@@ -212,10 +264,10 @@ def quality_for(hid: str) -> dict:
     df = load()
     d = df[df.hid == hid]
     present = 0
-    for code in PROCS:
+    for code in procedure_catalog():
         c = d[d.code == code]
         present += int(c.cash.notna().any()) + int(c.gross.notna().any()) + int((~c.bad & c.payer.notna()).any())
-    expected = len(PROCS) * len(PRICE_TYPES)
+    expected = len(procedure_catalog()) * len(PRICE_TYPES)
     completeness = round(present / expected * 100)
     today = date.today()
     pub_age = (today - date.fromisoformat(HOSPITALS[hid]["published"])).days
@@ -232,18 +284,18 @@ def quality_for(hid: str) -> dict:
 @app.get("/api/health")
 def health():
     df = load()
-    return dict(status="ok", rows=int(len(df)), hospitals=len(HOSPITALS), procedures=len(PROCS), source=XLSX.name)
+    return dict(status="ok", rows=int(len(df)), hospitals=len(HOSPITALS), procedures=len(procedure_catalog()), source=XLSX.name)
 
 
 @app.get("/api/procedures")
 def procedures(q: str = ""):
     q = q.strip().lower()
-    return [procedure_json(c) for c, n in PROCS.items() if not q or q in c.lower() or q in n.lower()]
+    return [procedure for code, procedure in procedure_catalog().items() if not q or q in code.lower() or q in procedure["name"].lower()]
 
 
 @app.get("/api/procedures/{code}")
 def procedure(code: str):
-    if code not in PROCS:
+    if code not in procedure_catalog():
         raise HTTPException(404, "Unknown procedure code")
     return procedure_json(code)
 
@@ -270,7 +322,7 @@ def payers():
 @app.get("/api/prices/compare")
 def compare(code: str, priceType: str = "cash", setting: str = "outpatient", payerId: str = "",
             hospitalIds: str = Query("", description="comma-separated hospital ids")):
-    if code not in PROCS:
+    if code not in procedure_catalog():
         raise HTTPException(404, f"Unknown procedure code {code}")
     if priceType not in PRICE_TYPES or setting not in ("inpatient", "outpatient"):
         raise HTTPException(400, "Invalid priceType or setting")
@@ -303,7 +355,7 @@ def hospital_prices(hospital_id: str):
         raise HTTPException(404, "Unknown hospital")
     df = load()
     out = []
-    for code in PROCS:
+    for code in procedure_catalog():
         mine = amounts(df, hospital_id, code, "cash", "outpatient", None)
         gross = amounts(df, hospital_id, code, "gross", "outpatient", None)
         neg = amounts(df, hospital_id, code, "negotiated", "outpatient", None)
@@ -324,7 +376,7 @@ def quality():
 @app.get("/api/admin/template")
 def admin_template(x_admin_username: str | None = Header(None), x_admin_key: str | None = Header(None)):
     require_admin_key(x_admin_username, x_admin_key)
-    return {"columns": ["code", "description", "payer", "plan", "setting", "gross", "cash", "negotiated"], "required": ["code", "setting"], "priceColumns": ["gross", "cash", "negotiated"]}
+    return {"columns": ["billing_code", "billing_code_description", "payer_name", "plan_name", "setting", "standard_charge_gross", "standard_charge_discounted_cash", "standard_charge_negotiated_dollar"], "required": ["billing_code"], "priceColumns": ["standard_charge_gross", "standard_charge_discounted_cash", "standard_charge_negotiated_dollar"], "notes": "ClearCost columns and common CMS machine-readable CSV headers are accepted. Setting is optional and defaults to both."}
 
 
 @app.post("/api/admin/uploads")
@@ -379,5 +431,6 @@ async def admin_upload(
     # Rebuild the cleaned view from raw records before exposing the upload.
     runpy.run_path(str(Path(__file__).resolve().parent / "pipeline" / "03_clean.py"))
     load.cache_clear()
+    procedure_catalog.cache_clear()
     refresh_hospitals()
-    return {"status": "ok", "hospitalId": hospital_id, "rowsImported": int(len(frame)), "inScopeRows": int(frame.code.isin(PROCS).sum())}
+    return {"status": "ok", "hospitalId": hospital_id, "rowsImported": int(len(frame)), "proceduresAdded": int(frame.code.nunique()), "inScopeRows": int(len(frame))}

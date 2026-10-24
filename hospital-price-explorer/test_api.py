@@ -108,12 +108,24 @@ class ThreeHospitalApiTests(unittest.TestCase):
             "code": "45385", "priceType": "cash", "setting": "outpatient", "hospitalIds": "test",
         }).json()
         self.assertEqual(price["rows"][0]["amount"], 900.0)
+        bulk_csv = b"billing_code,billing_code_description,payer_name,standard_charge_discounted_cash\n72148,MRI lumbar spine,Blue Cross Blue Shield,750\n"
+        bulk = self.client.post("/api/admin/uploads", headers=headers, data={
+            "hospital_name": "Bulk Hospital", "hospital_code": "BULK", "published": "2026-10-24",
+        }, files={"file": ("standard-charges.csv", bulk_csv, "text/csv")})
+        self.assertEqual(bulk.status_code, 200, bulk.text)
+        self.assertEqual(bulk.json()["proceduresAdded"], 1)
+        procedure = self.client.get("/api/procedures/72148")
+        self.assertEqual(procedure.status_code, 200)
+        self.assertEqual(procedure.json()["name"], "MRI lumbar spine")
+        search = self.client.get("/api/procedures", params={"q": "lumbar"}).json()
+        self.assertEqual([p["code"] for p in search], ["72148"])
         con = __import__("duckdb").connect(config.DB)
-        con.execute("delete from raw where hospital = 'TEST'")
-        con.execute("delete from hospital_registry where id = 'test'")
+        con.execute("delete from raw where hospital in ('TEST', 'BULK')")
+        con.execute("delete from hospital_registry where id in ('test', 'bulk')")
         con.close()
         runpy.run_path(str(ROOT / "pipeline" / "03_clean.py"))
         self.api.load.cache_clear()
+        self.api.procedure_catalog.cache_clear()
         self.api.refresh_hospitals()
         if previous_key is None:
             del os.environ["ADMIN_API_KEY"]
