@@ -5,10 +5,10 @@ import { proceduresQuery } from "@/lib/api/queries";
 import type { Procedure } from "@/lib/models/types";
 import { Input } from "@/components/ui/input";
 
-export function ProcedureSearch({ selected, onSelect }: { selected: Procedure | undefined; onSelect: (p: Procedure) => void }) {
+export function ProcedureSearch({ selected, onSelect, hospitalId }: { selected: Procedure | undefined; onSelect: (p: Procedure) => void; hospitalId?: string }) {
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
-  const { data = [], isFetching } = useQuery({ ...proceduresQuery(q), enabled: open });
+  const { data = [], isFetching } = useQuery({ ...proceduresQuery(q, hospitalId), enabled: open });
 
   return (
     <div className="relative">

@@ -291,9 +291,19 @@ def health():
 
 
 @app.get("/api/procedures")
-def procedures(q: str = ""):
+def procedures(q: str = "", hospitalId: str = ""):
+    """Search procedures, optionally limiting results to operations with a listed price at one hospital."""
     q = q.strip().lower()
-    return [procedure for code, procedure in procedure_catalog().items() if not q or q in code.lower() or q in procedure["name"].lower()]
+    catalog = procedure_catalog()
+    codes = set(catalog)
+    if hospitalId:
+        if hospitalId not in HOSPITALS:
+            raise HTTPException(404, "Unknown hospital")
+        rows = load()
+        at_hospital = rows[rows.hid == hospitalId]
+        has_price = at_hospital[["gross", "cash", "amount"]].notna().any(axis=1)
+        codes &= set(at_hospital.loc[has_price, "code"].dropna())
+    return [procedure for code, procedure in catalog.items() if code in codes and (not q or q in code.lower() or q in procedure["name"].lower())]
 
 
 @app.get("/api/procedures/{code}")
@@ -304,9 +314,16 @@ def procedure(code: str):
 
 
 @app.get("/api/hospitals")
-def hospitals(q: str = ""):
+def hospitals(q: str = "", procedureCode: str = ""):
+    """List hospitals, optionally limited to those with a published price for one procedure."""
     q = q.strip().lower()
-    out = [hospital_json(h) for h in HOSPITALS]
+    hospital_ids = set(HOSPITALS)
+    if procedureCode:
+        rows = load()
+        for_price = rows[rows.code == procedureCode.upper().strip()]
+        has_price = for_price[["gross", "cash", "amount"]].notna().any(axis=1)
+        hospital_ids &= set(for_price.loc[has_price, "hid"].dropna())
+    out = [hospital_json(h) for h in HOSPITALS if h in hospital_ids]
     return [h for h in out if not q or q in f'{h["name"]} {h["city"]} {h["neighborhood"]}'.lower()]
 
 

@@ -8,9 +8,9 @@ import type {
  * Pages only talk to this interface (via `src/lib/api/queries.ts`).
  */
 export interface PricingApi {
-  searchProcedures(query: string): Promise<Procedure[]>;
+  searchProcedures(query: string, hospitalId?: string): Promise<Procedure[]>;
   getProcedure(code: string): Promise<Procedure | null>;
-  listHospitals(query?: string): Promise<Hospital[]>;
+  listHospitals(query?: string, procedureCode?: string): Promise<Hospital[]>;
   getHospital(id: string): Promise<Hospital | null>;
   listPayers(): Promise<Payer[]>;
   comparePrices(filters: PriceFilters): Promise<ComparisonResult>;

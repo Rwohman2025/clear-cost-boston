@@ -21,9 +21,9 @@ export function createHttpApi(baseUrl?: string): PricingApi {
     return res.json() as Promise<T>;
   };
   return {
-    searchProcedures: (q) => get(`/api/procedures?q=${encodeURIComponent(q)}`),
+    searchProcedures: (q, hospitalId) => get(`/api/procedures?${new URLSearchParams({ q, ...(hospitalId ? { hospitalId } : {}) })}`),
     getProcedure: (code) => get(`/api/procedures/${code}`),
-    listHospitals: (q = "") => get(`/api/hospitals?q=${encodeURIComponent(q)}`),
+    listHospitals: (q = "", procedureCode) => get(`/api/hospitals?${new URLSearchParams({ q, ...(procedureCode ? { procedureCode } : {}) })}`),
     getHospital: (id) => get(`/api/hospitals/${id}`),
     listPayers: () => get(`/api/payers`),
     comparePrices: (f) =>

@@ -13,8 +13,8 @@ export const DEFAULT_FILTERS: PriceFilters = {
   code: "45385", priceType: "negotiated", setting: "outpatient", payerId: "blue-cross-blue-shield",
 };
 
-export const proceduresQuery = (q = "") => queryOptions({ queryKey: ["procedures", q], queryFn: () => api.searchProcedures(q) });
-export const hospitalsQuery = (q = "") => queryOptions({ queryKey: ["hospitals", q], queryFn: () => api.listHospitals(q) });
+export const proceduresQuery = (q = "", hospitalId?: string) => queryOptions({ queryKey: ["procedures", q, hospitalId ?? "all"], queryFn: () => api.searchProcedures(q, hospitalId) });
+export const hospitalsQuery = (q = "", procedureCode?: string) => queryOptions({ queryKey: ["hospitals", q, procedureCode ?? "all"], queryFn: () => api.listHospitals(q, procedureCode) });
 export const hospitalQuery = (id: string) => queryOptions({ queryKey: ["hospital", id], queryFn: () => api.getHospital(id) });
 export const hospitalPricesQuery = (id: string) => queryOptions({ queryKey: ["hospital-prices", id], queryFn: () => api.getHospitalPrices(id) });
 export const payersQuery = () => queryOptions({ queryKey: ["payers"], queryFn: () => api.listPayers(), staleTime: Infinity });

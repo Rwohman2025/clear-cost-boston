@@ -44,6 +44,7 @@ class ThreeHospitalApiTests(unittest.TestCase):
         self.assertEqual((health["hospitals"], health["procedures"], health["rows"]), (3, 25, 582))
         hospitals = self.client.get("/api/hospitals").json()
         self.assertEqual({h["id"] for h in hospitals}, {"bidmc", "mgh", "bwh"})
+        self.assertEqual(self.client.get("/api/hospitals", params={"procedureCode": "not-a-code"}).json(), [])
         self.assertTrue(all(h["beds"] is None for h in hospitals))
 
     def test_prices_match_spreadsheet(self):
@@ -77,6 +78,10 @@ class ThreeHospitalApiTests(unittest.TestCase):
 
     def test_supporting_endpoints(self):
         self.assertEqual(len(self.client.get("/api/procedures").json()), 25)
+        bwh_procedures = self.client.get("/api/procedures", params={"hospitalId": "bwh"})
+        self.assertEqual(bwh_procedures.status_code, 200)
+        self.assertEqual(len(bwh_procedures.json()), 21)
+        self.assertEqual(self.client.get("/api/procedures", params={"hospitalId": "missing"}).status_code, 404)
         self.assertTrue(self.client.get("/api/payers").json())
         self.assertEqual(len(self.client.get("/api/quality").json()), 3)
         for hid in ("bidmc", "mgh", "bwh"):

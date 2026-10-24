@@ -39,6 +39,8 @@ const PRICE_TYPES: { value: PriceType; label: string }[] = [
 function Explorer() {
   const { data: procedures } = useSuspenseQuery(proceduresQuery());
   const { data: hospitals } = useSuspenseQuery(hospitalsQuery());
+  const availableHospitalsQuery = useQuery({ ...hospitalsQuery("", filters.code), placeholderData: keepPreviousData });
+  const availableHospitals = availableHospitalsQuery.data ?? hospitals;
   const { data: payers } = useSuspenseQuery(payersQuery());
   const [filters, setFilters] = useState<PriceFilters>(DEFAULT);
   const [hospitalId, setHospitalId] = useState("all");
@@ -59,11 +61,11 @@ function Explorer() {
 
       <Card className="border-primary/20 bg-card p-4 sm:p-5">
         <div className="mb-4 text-sm text-muted-foreground">Choose a procedure and see the prices hospitals report. Start with the service, then narrow the view if you need to.</div>
-        <div className="grid gap-3 lg:grid-cols-[1fr_auto]">
-          <ProcedureSearch selected={procedure} onSelect={(p) => set({ code: p.code, setting: p.defaultSetting })} />
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <div className="grid gap-3 lg:grid-cols-[minmax(18rem,1fr)_minmax(28rem,1.15fr)]">
+          <ProcedureSearch selected={procedure} hospitalId={hospitalId === "all" ? undefined : hospitalId} onSelect={(p) => { setHospitalId("all"); set({ code: p.code, setting: p.defaultSetting }); }} />
+          <div className="grid grid-cols-2 gap-3">
             <FilterSelect label="Hospital" value={hospitalId} onChange={setHospitalId}
-              options={[{ value: "all", label: "All hospitals" }, ...hospitals.map((h) => ({ value: h.id, label: h.shortName }))]} />
+              options={[{ value: "all", label: "All hospitals" }, ...availableHospitals.map((h) => ({ value: h.id, label: h.name }))]} />
             <FilterSelect label="Price type" value={filters.priceType} onChange={(v) => set({ priceType: v as PriceType })} options={PRICE_TYPES} />
             <FilterSelect label="Insurance" value={filters.payerId ?? "all"} disabled={filters.priceType !== "negotiated"}
               onChange={(v) => set({ payerId: v === "all" ? null : v })}
@@ -137,7 +139,7 @@ function FilterSelect({ label, value, onChange, options, disabled }: {
     <div className="min-w-0">
       <div className="mb-1 text-[11px] font-medium text-muted-foreground">{label}</div>
       <Select value={value} onValueChange={onChange} disabled={!!disabled}>
-        <SelectTrigger className="h-9 w-full min-w-[9rem] bg-card text-xs"><SelectValue /></SelectTrigger>
+        <SelectTrigger className="h-10 w-full bg-card text-sm"><SelectValue /></SelectTrigger>
         <SelectContent>{options.map((o) => <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>)}</SelectContent>
       </Select>
     </div>
