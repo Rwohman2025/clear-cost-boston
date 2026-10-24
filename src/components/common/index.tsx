@@ -5,7 +5,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export function PageHeader({ title, description, actions, eyebrow }: { title: string; description?: ReactNode; actions?: ReactNode; eyebrow?: string }) {
   return (
-    <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between animate-rise">
+    <div className="mb-8 flex flex-col gap-3 border-b border-border/70 pb-6 sm:flex-row sm:items-end sm:justify-between animate-rise">
       <div>
         {eyebrow && <div className="mb-1 text-xs font-medium uppercase tracking-wider text-primary">{eyebrow}</div>}
         <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{title}</h1>
@@ -35,7 +35,7 @@ export function Card({ className, children, title, subtitle, action }: { classNa
 
 export function StatCard({ label, value, hint, tone = "default" }: { label: string; value: ReactNode; hint?: ReactNode; tone?: "default" | "primary" }) {
   return (
-    <div className={cn("card-surface card-hover p-4", tone === "primary" && "bg-hero border-transparent text-navy-foreground")}>
+    <div className={cn("card-surface p-4", tone === "primary" && "border-primary bg-primary text-primary-foreground")}>
       <div className={cn("text-xs font-medium", tone === "primary" ? "text-navy-foreground/70" : "text-muted-foreground")}>{label}</div>
       <div className="num mt-1.5 text-2xl font-semibold tracking-tight">{value}</div>
       {hint && <div className={cn("mt-1 text-xs", tone === "primary" ? "text-navy-foreground/70" : "text-muted-foreground")}>{hint}</div>}

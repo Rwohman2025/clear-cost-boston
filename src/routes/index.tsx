@@ -57,7 +57,8 @@ function Explorer() {
       />
       <SyntheticBanner />
 
-      <Card>
+      <Card className="border-primary/20 bg-card p-4 sm:p-5">
+        <div className="mb-4 text-sm text-muted-foreground">Choose a procedure and see the prices hospitals report. Start with the service, then narrow the view if you need to.</div>
         <div className="grid gap-3 lg:grid-cols-[1fr_auto]">
           <ProcedureSearch selected={procedure} onSelect={(p) => set({ code: p.code, setting: p.defaultSetting })} />
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -67,7 +68,7 @@ function Explorer() {
             <FilterSelect label="Insurance" value={filters.payerId ?? "all"} disabled={filters.priceType !== "negotiated"}
               onChange={(v) => set({ payerId: v === "all" ? null : v })}
               options={[{ value: "all", label: "All insurers" }, ...payers.map((p) => ({ value: p.id, label: p.name }))]} />
-            <FilterSelect label="Setting" value={filters.setting} onChange={(v) => set({ setting: v as Setting })}
+            <FilterSelect label="Where you receive care" value={filters.setting} onChange={(v) => set({ setting: v as Setting })}
               options={[{ value: "outpatient", label: "Outpatient" }, { value: "inpatient", label: "Inpatient" }]} />
           </div>
         </div>

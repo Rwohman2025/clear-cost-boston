@@ -47,13 +47,13 @@ export function AppSidebar() {
     <Sidebar collapsible="icon">
       <SidebarHeader>
         <Link to="/" className="flex items-center gap-2.5 px-2 py-2">
-          <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground font-semibold">
-            C
+          <div className="grid h-8 w-8 shrink-0 place-items-center rounded-sm border border-sidebar-primary/50 text-xs font-bold text-sidebar-primary">
+            CB
           </div>
           {!collapsed && (
             <div className="leading-tight">
-              <div className="text-sm font-semibold text-sidebar-accent-foreground">ClearCost Boston</div>
-              <div className="text-[11px] text-sidebar-foreground/60">Hospital prices, made transparent.</div>
+              <div className="font-serif text-lg leading-none text-sidebar-accent-foreground">ClearCost</div>
+              <div className="mt-1 text-[10px] font-medium uppercase tracking-[0.14em] text-sidebar-foreground/55">Boston price guide</div>
             </div>
           )}
         </Link>
@@ -65,8 +65,8 @@ export function AppSidebar() {
       </SidebarContent>
       <SidebarFooter>
         {!collapsed && (
-          <div className="rounded-lg border border-sidebar-border bg-sidebar-accent p-3 text-[11px] leading-relaxed text-sidebar-foreground/80">
-            <>Published prices from Boston hospitals.</>
+          <div className="border-l border-sidebar-primary/70 pl-3 text-[11px] leading-relaxed text-sidebar-foreground/70">
+            Compare the prices hospitals publish for common care.
           </div>
         )}
       </SidebarFooter>

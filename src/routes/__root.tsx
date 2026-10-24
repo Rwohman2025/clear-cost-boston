@@ -78,7 +78,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     links: [
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
-      { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" },
+      { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&display=swap" },
       { rel: "stylesheet", href: appCss },
       { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
     ],
@@ -112,11 +112,11 @@ function RootComponent() {
         <div className="flex min-h-screen w-full">
           <AppSidebar />
           <div className="flex min-w-0 flex-1 flex-col">
-            <header className="sticky top-0 z-10 flex h-12 items-center gap-3 border-b bg-background/85 px-3 backdrop-blur">
+            <header className="sticky top-0 z-10 flex h-14 items-center gap-3 border-b border-border/80 bg-background/90 px-3 backdrop-blur sm:px-6">
               <SidebarTrigger />
-              <span className="text-xs text-muted-foreground">Greater Boston · Published hospital prices</span>
+              <div className="min-w-0 leading-tight"><div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-primary">ClearCost Boston</div><div className="hidden text-xs text-muted-foreground sm:block">A guide to published hospital prices</div></div>
             </header>
-            <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 lg:px-8">
+            <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6 lg:px-8">
               <Outlet />
             </main>
           </div>
