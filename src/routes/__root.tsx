@@ -14,6 +14,7 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/AppSidebar";
+import { isLiveData } from "@/lib/api/queries";
 
 function NotFoundComponent() {
   return (
@@ -114,7 +115,7 @@ function RootComponent() {
           <div className="flex min-w-0 flex-1 flex-col">
             <header className="sticky top-0 z-10 flex h-12 items-center gap-3 border-b bg-background/85 px-3 backdrop-blur">
               <SidebarTrigger />
-              <span className="text-xs text-muted-foreground">Greater Boston · Synthetic demo dataset</span>
+              <span className="text-xs text-muted-foreground">Greater Boston · {isLiveData ? "Published price data (early dataset)" : "Synthetic demo dataset"}</span>
             </header>
             <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 lg:px-8">
               <Outlet />

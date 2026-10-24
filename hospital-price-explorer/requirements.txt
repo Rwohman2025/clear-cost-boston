@@ -1,0 +1,13 @@
+# API + data build (enough to run build_db.py and server.py)
+pandas
+openpyxl
+duckdb
+fastapi
+uvicorn
+
+# Optional: legacy analysis scripts (pipeline/04_model.py, 05_location.py) and the Streamlit prototype (app/app.py)
+# streamlit
+# matplotlib
+# statsmodels
+# scipy
+# requests

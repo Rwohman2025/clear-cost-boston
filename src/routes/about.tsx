@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Card, PageHeader, Prose } from "@/components/common";
+import { isLiveData } from "@/lib/api/queries";
 
 export const Route = createFileRoute("/about")({
   head: () => ({
@@ -35,7 +36,9 @@ function About() {
         <p>A published price is what a hospital says it charges or has agreed to accept for a defined service. Your actual bill may differ because of physician fees billed separately, anesthesia, facility fees, additional imaging or tests, complications, your deductible, coinsurance and plan rules.</p>
         <p><strong>Always confirm costs with the hospital and your insurer before receiving care.</strong> ClearCost Boston is informational and does not provide billing estimates, medical advice or financial guarantees.</p>
         <h2>About this demo</h2>
-        <p>The current build uses synthetic demonstration data only. Hospital names are fictional and prices are generated. Real hospital files will be added once the ingestion pipeline is verified.</p>
+        <p>{isLiveData
+          ? "This build shows real published prices for three hospitals (Beth Israel Deaconess Medical Center, Massachusetts General Hospital and Brigham and Women's Hospital) across 25 selected procedures, taken from each hospital's machine-readable standard-charges file. It is an early dataset: Brigham's files do not list four of the 25 codes, and some price types are missing at some hospitals. Absence from a file does not mean the care is unavailable."
+          : "The current build uses synthetic demonstration data only. Hospital names are fictional and prices are generated. Real hospital files will be added once the ingestion pipeline is verified."}</p>
       </Prose>
     </div>
   );

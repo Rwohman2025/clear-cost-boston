@@ -48,7 +48,7 @@ function HospitalPage() {
   return (
     <div className="space-y-5">
       <Link to="/hospitals" className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"><ArrowLeft className="h-3 w-3" />All hospitals</Link>
-      <PageHeader eyebrow={hospital.type} title={hospital.name} description={`${hospital.neighborhood}, ${hospital.city} · ${hospital.beds} beds`} />
+      <PageHeader eyebrow={hospital.type} title={hospital.name} description={`${hospital.neighborhood}, ${hospital.city}${hospital.beds != null ? ` · ${hospital.beds} beds` : ""}`} />
       <SyntheticBanner />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -81,7 +81,9 @@ function HospitalPage() {
             <div><dt className="text-muted-foreground">Completeness</dt><dd className="mt-1"><Meter value={q.completeness} /></dd></div>
             <div>
               <dt className="text-muted-foreground">Source URL (placeholder)</dt>
-              <dd className="mt-1 break-all"><a href={hospital.sourceUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-primary hover:underline">{hospital.sourceUrl}<ExternalLink className="h-3 w-3 shrink-0" /></a></dd>
+              <dd className="mt-1 break-all">{/^https?:\/\//.test(hospital.sourceUrl)
+                ? <a href={hospital.sourceUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-primary hover:underline">{hospital.sourceUrl}<ExternalLink className="h-3 w-3 shrink-0" /></a>
+                : <span>{hospital.sourceUrl}</span>}</dd>
             </div>
           </dl>
         </Card>

@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { qualityQuery } from "@/lib/api/queries";
 import { DATA_AS_OF } from "@/lib/mock/data";
+import { isLiveData } from "@/lib/api/queries";
 import { Card, Meter, PageHeader, ScorePill, StatCard, SyntheticBanner } from "@/components/common";
 import { cn } from "@/lib/utils";
 
@@ -25,7 +26,7 @@ function QualityPage() {
 
   return (
     <div className="space-y-5">
-      <PageHeader eyebrow="Data Quality" title="Data quality dashboard" description={`How complete, fresh and comparable each hospital's published pricing file is. Reference date ${DATA_AS_OF}.`} />
+      <PageHeader eyebrow="Data Quality" title="Data quality dashboard" description={`How complete, fresh and comparable each hospital's published pricing file is. Reference date ${isLiveData ? new Date().toISOString().slice(0, 10) : DATA_AS_OF}.`} />
       <SyntheticBanner />
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard tone="primary" label="Avg. comparability" value={`${avg((x) => x.comparability)}/100`} />

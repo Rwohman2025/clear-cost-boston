@@ -1,6 +1,7 @@
 import { Bar, BarChart, CartesianGrid, Cell, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { HospitalPriceRow, PriceStats } from "@/lib/models/types";
 import { formatUSD } from "@/lib/stats";
+import { isLiveData } from "@/lib/api/queries";
 
 export function PriceComparisonChart({ rows, stats }: { rows: HospitalPriceRow[]; stats: PriceStats }) {
   const data = [...rows].sort((a, b) => a.amount - b.amount).map((r) => ({ name: r.hospital.shortName, amount: r.amount, outlier: r.isOutlier }));
@@ -14,7 +15,7 @@ export function PriceComparisonChart({ rows, stats }: { rows: HospitalPriceRow[]
           <Tooltip
             cursor={{ fill: "var(--muted)" }}
             contentStyle={{ borderRadius: 8, border: "1px solid var(--border)", fontSize: 12 }}
-            formatter={(v: number) => [formatUSD(v), "Synthetic price"]}
+            formatter={(v: number) => [formatUSD(v), isLiveData ? "Published price" : "Synthetic price"]}
           />
           <ReferenceLine x={stats.median} stroke="var(--chart-2)" strokeDasharray="4 4" label={{ value: `Median ${formatUSD(stats.median)}`, position: "top", fontSize: 11, fill: "var(--chart-2)" }} />
           <Bar dataKey="amount" radius={[0, 6, 6, 0]} barSize={18}>

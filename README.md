@@ -2,7 +2,15 @@
 
 **Hospital prices, made transparent.** A price-transparency platform for comparing published hospital procedure prices across greater Boston.
 
-> ⚠️ This build ships **synthetic demonstration data only**. Hospital names are fictional and all prices are generated. Nothing here is a real hospital charge or a billing estimate.
+The project has three parts that work together:
+
+| Part | Where | What it is |
+| --- | --- | --- |
+| Frontend | `src/` | React app (this README's stack below) |
+| Backend | `hospital-price-explorer/` | Python + DuckDB pipeline and a FastAPI server (`server.py`) |
+| Real data | `three_hospitals_25_procedures.xlsx` | Published prices for Beth Israel Deaconess, Mass General and Brigham and Women's across 25 procedures (source ZIPs for MGH and BWH are alongside it) |
+
+The frontend runs in two modes. **With `VITE_API_URL` set it shows the real published prices from the backend.** Without it, it falls back to **synthetic demonstration data** (fictional hospitals, generated prices) from `src/lib/mock/`. Published prices are not bills or estimates.
 
 ## Stack
 TanStack Start (React 19, TypeScript), TanStack Router + Query, Tailwind CSS v4, shadcn/ui, Recharts.
@@ -34,8 +42,9 @@ src/
 3. **Data quality & stats** — `routes/data-quality.tsx`, `lib/stats.ts`
 4. **Backend integration** — `lib/api/*`, `lib/models/types.ts`
 
-## Future integration points
-- Implement the endpoints listed in `src/lib/api/http-api.ts` and switch `api` in `src/lib/api/queries.ts` to `createHttpApi(...)`.
+## Integration points
+- The backend already implements the endpoints listed in `src/lib/api/http-api.ts`; `src/lib/api/queries.ts` picks the HTTP client when `VITE_API_URL` is set.
+- Known gaps in the real data: Brigham's files lack 4 of the 25 codes; BIDMC publishes gross/cash for only some codes; the spreadsheet has no bed counts or hospital URLs, so those fields are empty in the UI.
 - Backend will ingest hospital CSV/JSON machine-readable files, normalize CPT/HCPCS codes, hospital identities, settings, price types and payers, preserve source URLs and retrieval dates, compute statistics/outliers, and serve `ComparisonResult` objects.
 - Keep `lib/models/types.ts` as the shared contract with the backend.
 
@@ -56,7 +65,28 @@ npm run dev        # or: bun run dev
 ```
 Open **http://localhost:8080**. The dev server hot-reloads as you edit files.
 
-No environment variables or backend are needed; all data comes from the in-memory mock API.
+With no further setup this runs on the **synthetic mock data**. To use the real data, also run the backend below.
+
+### Run with the real data (frontend + backend)
+Needs Python 3.10+ in addition to Node.
+
+```bash
+# 1. Backend (terminal 1)
+cd hospital-price-explorer
+python -m venv .venv
+.venv\Scripts\activate            # macOS/Linux: source .venv/bin/activate
+pip install -r requirements.txt
+python build_db.py                 # loads the spreadsheet, cleans it -> data/db/prices.duckdb
+uvicorn server:app --port 8000     # API at http://localhost:8000/api/health
+
+# 2. Frontend (terminal 2, from the repo root)
+cp .env.example .env.local         # sets VITE_API_URL=http://localhost:8000
+npm run dev
+```
+Restart the frontend after creating or changing `.env.local`, and restart the API after re-running `build_db.py`.
+To switch back to synthetic data, delete `.env.local` and restart `npm run dev`.
+
+**How the data flows:** `three_hospitals_25_procedures.xlsx` -> `pipeline/02_load_xlsx.py` (raw table) -> `pipeline/03_clean.py` (payer normalization, validity and outlier flags) -> `server.py` (stats, comparability, REST endpoints in the shapes of `src/lib/models/types.ts`) -> `src/lib/api/http-api.ts` -> pages.
 
 ### Scripts
 | Command | What it does |

@@ -3,6 +3,7 @@ import { Link } from "@tanstack/react-router";
 import { ArrowDown, ArrowUp, ArrowUpDown, AlertTriangle } from "lucide-react";
 import type { HospitalPriceRow, PriceStats } from "@/lib/models/types";
 import { formatPct, formatUSD } from "@/lib/stats";
+import { isLiveData } from "@/lib/api/queries";
 import { ScorePill } from "@/components/common";
 import { cn } from "@/lib/utils";
 
@@ -37,7 +38,7 @@ export function PriceTable({ rows, stats }: { rows: HospitalPriceRow[]; stats: P
         <thead className="border-b text-left text-xs text-muted-foreground">
           <tr>
             <Th k="hospital">Hospital</Th>
-            <Th k="amount" right>Synthetic price</Th>
+            <Th k="amount" right>{isLiveData ? "Published price" : "Synthetic price"}</Th>
             <Th k="vsMedian" right>vs. median</Th>
             <Th k="comparability">Comparability</Th>
             <th className="px-3 py-2.5 font-medium">Source</th>

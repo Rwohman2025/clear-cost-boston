@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { keepPreviousData, useQuery, useSuspenseQuery } from "@tanstack/react-query";
-import { comparisonQuery, hospitalsQuery, payersQuery, proceduresQuery } from "@/lib/api/queries";
+import { DEFAULT_FILTERS as DEFAULT, comparisonQuery, hospitalsQuery, payersQuery, proceduresQuery } from "@/lib/api/queries";
 import type { PriceFilters, PriceType, Setting } from "@/lib/models/types";
 import { formatUSD } from "@/lib/stats";
 import { Card, EmptyState, ErrorState, LoadingState, PageHeader, StatCard, SyntheticBanner } from "@/components/common";
@@ -10,8 +10,6 @@ import { PriceTable } from "@/components/explorer/PriceTable";
 import { PriceComparisonChart } from "@/components/charts/PriceComparisonChart";
 import { PriceDistributionChart } from "@/components/charts/PriceDistributionChart";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-
-const DEFAULT: PriceFilters = { code: "72148", priceType: "cash", setting: "outpatient", payerId: "bcbsma" };
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -66,8 +64,9 @@ function Explorer() {
             <FilterSelect label="Hospital" value={hospitalId} onChange={setHospitalId}
               options={[{ value: "all", label: "All hospitals" }, ...hospitals.map((h) => ({ value: h.id, label: h.shortName }))]} />
             <FilterSelect label="Price type" value={filters.priceType} onChange={(v) => set({ priceType: v as PriceType })} options={PRICE_TYPES} />
-            <FilterSelect label="Insurance" value={filters.payerId ?? ""} disabled={filters.priceType !== "negotiated"}
-              onChange={(v) => set({ payerId: v })} options={payers.map((p) => ({ value: p.id, label: p.name }))} />
+            <FilterSelect label="Insurance" value={filters.payerId ?? "all"} disabled={filters.priceType !== "negotiated"}
+              onChange={(v) => set({ payerId: v === "all" ? null : v })}
+              options={[{ value: "all", label: "All insurers" }, ...payers.map((p) => ({ value: p.id, label: p.name }))]} />
             <FilterSelect label="Setting" value={filters.setting} onChange={(v) => set({ setting: v as Setting })}
               options={[{ value: "outpatient", label: "Outpatient" }, { value: "inpatient", label: "Inpatient" }]} />
           </div>

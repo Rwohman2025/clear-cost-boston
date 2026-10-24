@@ -16,7 +16,8 @@ export interface Hospital {
   neighborhood: string;
   city: string;
   type: HospitalType;
-  beds: number;
+  /** null when the source files don't say (real data carries no bed counts). */
+  beds: number | null;
   /** URL of the hospital's machine-readable pricing file. */
   sourceUrl: string;
   sourceFormat: "CSV" | "JSON";

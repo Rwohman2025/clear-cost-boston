@@ -52,7 +52,7 @@ function Directory() {
                   </div>
                   <div className="mt-4 grid grid-cols-3 gap-2 text-xs">
                     <div><div className="text-muted-foreground">Type</div><div className="mt-0.5 font-medium">{h.type.replace(" hospital", "").replace(" medical center", "")}</div></div>
-                    <div><div className="text-muted-foreground">Beds</div><div className="num mt-0.5 font-medium">{h.beds}</div></div>
+                    {h.beds != null && <div><div className="text-muted-foreground">Beds</div><div className="num mt-0.5 font-medium">{h.beds}</div></div>}
                     <div><div className="text-muted-foreground">Coverage</div><div className="num mt-0.5 font-medium">{s?.completeness ?? "—"}%</div></div>
                   </div>
                   <div className="mt-4 flex items-center justify-between border-t pt-3 text-xs text-muted-foreground">

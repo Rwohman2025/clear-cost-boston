@@ -18,7 +18,7 @@ export function ProcedureSearch({ selected, onSelect }: { selected: Procedure | 
         onFocus={() => { setOpen(true); setQ(""); }}
         onBlur={() => setTimeout(() => setOpen(false), 150)}
         onChange={(e) => setQ(e.target.value)}
-        placeholder="Search procedures by name or CPT/HCPCS code (e.g. 72148, MRI)"
+        placeholder="Search procedures by name or CPT/HCPCS code (e.g. 45385, colonoscopy)"
         className="h-11 bg-card pl-9 text-sm"
         aria-label="Search procedures"
       />

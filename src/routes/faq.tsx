@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Card, PageHeader } from "@/components/common";
+import { isLiveData } from "@/lib/api/queries";
 
 export const Route = createFileRoute("/faq")({
   head: () => ({
@@ -20,7 +21,9 @@ const FAQS = [
   ["What does the pricing data include?", "Hospital-published standard charges: gross charges, discounted cash prices and payer-negotiated rates, with procedure codes, setting, source file URL and retrieval date."],
   ["What does it exclude?", "Separately billed physician or anesthesia fees, your deductible and coinsurance, facility fees not listed, complications, and any services beyond the listed code."],
   ["Is this what I will pay?", "No. Results are informational only and are not guaranteed billing estimates. Contact the hospital and your insurer for a personalized estimate before receiving care."],
-  ["Is the data on this site real?", "Not yet. This build uses clearly labeled synthetic demonstration data with fictional hospital names."],
+  ["Is the data on this site real?", isLiveData
+    ? "Yes, but it is an early dataset. Prices come from the published standard-charges files of Beth Israel Deaconess Medical Center, Massachusetts General Hospital and Brigham and Women's Hospital, for 25 selected procedures. Coverage is partial and the numbers are not bills or estimates."
+    : "Not yet. This build uses clearly labeled synthetic demonstration data with fictional hospital names."],
 ];
 
 function Faq() {
