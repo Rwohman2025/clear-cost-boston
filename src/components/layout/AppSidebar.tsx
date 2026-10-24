@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { BookOpen, Building2, FlaskConical, HelpCircle, LayoutDashboard, ShieldCheck } from "lucide-react";
+import { BookOpen, Building2, FlaskConical, HelpCircle, KeyRound, LayoutDashboard, ShieldCheck } from "lucide-react";
 import { isLiveData } from "@/lib/api/queries";
 import {
   Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarGroupLabel,
@@ -62,6 +62,7 @@ export function AppSidebar() {
       <SidebarContent>
         {renderGroup("Explore", explore)}
         {renderGroup("Learn", learn)}
+        {renderGroup("Admin", [{ title: "Import CSV", url: "/admin", icon: KeyRound }] as const)}
       </SidebarContent>
       <SidebarFooter>
         {!collapsed && (

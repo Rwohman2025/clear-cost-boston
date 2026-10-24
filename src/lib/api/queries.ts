@@ -4,7 +4,7 @@ import { createHttpApi } from "./http-api";
 import type { PricingApi } from "./types";
 
 /** Published three-hospital prices are served by the separate Python backend. */
-const API_URL = import.meta.env["VITE_API_URL"] as string | undefined;
+export const API_URL = import.meta.env["VITE_API_URL"] as string | undefined;
 export const isLiveData = true;
 export const api: PricingApi = createHttpApi(API_URL?.trim().replace(/\/$/, ""));
 

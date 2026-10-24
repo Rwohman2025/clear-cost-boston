@@ -4,6 +4,8 @@ openpyxl
 duckdb
 fastapi
 uvicorn
+python-multipart
+httpx
 
 # Optional: legacy analysis scripts (pipeline/04_model.py, 05_location.py) and the Streamlit prototype (app/app.py)
 # streamlit

@@ -151,3 +151,9 @@ The tests build a temporary database from the checked-in workbook and exercise t
 A GitHub Actions workflow runs these checks on pushes and pull requests.
 
 Railway settings are configured on each service. Legacy railway.toml/json configuration is not used.
+
+## Admin CSV imports
+
+The `/admin` page imports one cleaned hospital CSV at a time. It is protected by the API service’s `ADMIN_USERNAME` and `ADMIN_API_KEY` variables; the key is entered in the browser and is never included in the frontend build. Required columns are `code` (or `CPT code`) and `setting`, with at least one of `gross`, `cash`, or `negotiated`. Optional columns include `description`, `payer`, and `plan`.
+
+For durable imports on Railway, mount a volume at `/data` on the API service and set `DATA_DIR=/data`. Set a strong `ADMIN_USERNAME` and `ADMIN_API_KEY` in the API service Variables panel before visiting `/admin`.

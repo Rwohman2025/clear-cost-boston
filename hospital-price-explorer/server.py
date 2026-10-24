@@ -7,20 +7,25 @@ Response shapes mirror src/lib/models/types.ts in the frontend (camelCase). Endp
 sketched in src/lib/api/http-api.ts.
 """
 import math
+import os
 import re
+import secrets
+import io
+import runpy
+from pathlib import Path
 from datetime import date, datetime
 from functools import lru_cache
 
 import duckdb
 import numpy as np
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, File, Form, Header, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
 from config import CATEGORIES, DB, PROCS, XLSX
 
 # Hospital identity and source metadata. The spreadsheet carries no address or bed data, so only
 # facts we can state are included; `last_published` comes from the spreadsheet's "Sources and notes".
-HOSPITALS = {
+DEFAULT_HOSPITALS = {
     "bidmc": dict(code="BIDMC", name="Beth Israel Deaconess Medical Center", shortName="BIDMC",
                   neighborhood="Longwood Medical Area", published="2026-04-01",
                   source="hospital_prices_flattened.zip"),
@@ -31,11 +36,90 @@ HOSPITALS = {
                 neighborhood="Mission Hill", published="2026-03-27",
                 source="042312909_Brigham-and-Womens-Hospital_StandardCharges.zip"),
 }
+HOSPITALS = dict(DEFAULT_HOSPITALS)
 BY_CODE = {h["code"]: hid for hid, h in HOSPITALS.items()}
 PRICE_TYPES = ("gross", "cash", "negotiated")
 
 app = FastAPI(title="ClearCost Boston API")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["GET"], allow_headers=["*"])
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["GET", "POST"], allow_headers=["*", "X-Admin-Key"])
+
+
+def ensure_admin_tables():
+    con = duckdb.connect(DB)
+    con.execute("""create table if not exists hospital_registry (
+        id varchar primary key, code varchar, name varchar, short_name varchar, neighborhood varchar,
+        city varchar, source varchar, published varchar, uploaded_at timestamp default current_timestamp
+    )""")
+    con.close()
+
+
+def refresh_hospitals():
+    """Merge persistent admin-uploaded hospitals into the built-in starter catalog."""
+    global HOSPITALS, BY_CODE
+    catalog = dict(DEFAULT_HOSPITALS)
+    try:
+        con = duckdb.connect(DB, read_only=True)
+        rows = con.execute("select id, code, name, short_name, neighborhood, city, source, published from hospital_registry").fetchall()
+        con.close()
+    except duckdb.Error:
+        rows = []
+    for hid, code, name, short_name, neighborhood, city, source, published in rows:
+        catalog[hid] = dict(code=code, name=name, shortName=short_name or code, neighborhood=neighborhood or "Greater Boston", published=published or date.today().isoformat(), source=source or "Admin CSV upload", city=city or "Boston")
+    HOSPITALS = catalog
+    BY_CODE = {h["code"]: hid for hid, h in catalog.items()}
+
+
+def require_admin_key(username: str | None, key: str | None):
+    expected_username = os.environ.get("ADMIN_USERNAME")
+    expected_key = os.environ.get("ADMIN_API_KEY")
+    if not expected_username or not expected_key:
+        raise HTTPException(503, "Admin uploads are disabled. Set ADMIN_USERNAME and ADMIN_API_KEY on the API service first.")
+    if not username or not key or not secrets.compare_digest(username, expected_username) or not secrets.compare_digest(key, expected_key):
+        raise HTTPException(401, "Invalid admin credentials")
+
+
+def normalize_id(value: str) -> str:
+    result = slug(value)
+    if not result or len(result) > 48:
+        raise HTTPException(422, "Hospital ID must contain letters or numbers and be at most 48 characters.")
+    return result
+
+
+def upload_frame(contents: bytes, hospital_code: str, hospital_name: str, system: str, published: str):
+    if len(contents) > 25 * 1024 * 1024:
+        raise HTTPException(413, "CSV files must be 25 MB or smaller.")
+    try:
+        import pandas as pd
+        source = pd.read_csv(io.BytesIO(contents), dtype=str)
+    except Exception as error:
+        raise HTTPException(422, f"Could not read CSV: {error}") from error
+    aliases = {
+        "cpt": "code", "cpt_code": "code", "hcpcs": "code", "procedure_code": "code",
+        "payer": "payer_raw", "payer_name": "payer_raw", "plan": "plan_raw", "plan_name": "plan_raw",
+        "negotiated": "amount", "negotiated_usd": "amount", "negotiated_rate": "amount",
+        "gross_usd": "gross", "gross_charge": "gross", "cash_usd": "cash", "cash_price": "cash",
+        "service_setting": "setting", "description": "description", "procedure_description": "description",
+    }
+    source.columns = [aliases.get(str(c).strip().lower().replace(" ", "_"), str(c).strip().lower().replace(" ", "_")) for c in source.columns]
+    if "code" not in source or "setting" not in source:
+        raise HTTPException(422, "CSV needs code (or CPT code) and setting columns.")
+    if not any(c in source for c in ("amount", "gross", "cash")):
+        raise HTTPException(422, "CSV needs at least one price column: negotiated, gross, or cash.")
+    def col(name, default=None):
+        return source[name] if name in source else default
+    frame = pd.DataFrame({
+        "hospital": hospital_code, "system": system or hospital_name, "code": col("code").astype(str).str.strip(),
+        "description": col("description", ""), "payer_raw": col("payer_raw", ""), "plan_raw": col("plan_raw", ""),
+        "setting": col("setting").astype(str).str.strip(), "billing_class": col("billing_class", ""),
+        "gross": pd.to_numeric(col("gross"), errors="coerce"), "cash": pd.to_numeric(col("cash"), errors="coerce"),
+        "amount": pd.to_numeric(col("amount"), errors="coerce"), "methodology": col("methodology", "admin-upload"),
+        "est_pct": pd.to_numeric(col("est_pct"), errors="coerce"), "median_amt": pd.to_numeric(col("median_amt"), errors="coerce"),
+        "p10": pd.to_numeric(col("p10"), errors="coerce"), "p90": pd.to_numeric(col("p90"), errors="coerce"), "last_updated": published,
+    })
+    frame = frame[frame.code.str.match(r"^[A-Za-z0-9]{5}", na=False)].copy()
+    if frame.empty:
+        raise HTTPException(422, "No rows contained a five-character CPT or HCPCS code.")
+    return frame
 
 
 # ---------------------------------------------------------------- data access
@@ -44,6 +128,7 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["GET"], a
 def load():
     """Read the cleaned table once. Restart the server after re-running build_db.py."""
     try:
+        refresh_hospitals()
         con = duckdb.connect(DB, read_only=True)
         df = con.sql("select * from clean where in_scope").df()
         con.close()
@@ -71,7 +156,7 @@ def slug(s: str) -> str:
 
 def hospital_json(hid: str) -> dict:
     h = HOSPITALS[hid]
-    return dict(id=hid, name=h["name"], shortName=h["shortName"], neighborhood=h["neighborhood"], city="Boston",
+    return dict(id=hid, name=h["name"], shortName=h["shortName"], neighborhood=h["neighborhood"], city=h.get("city", "Boston"),
                 type="Academic medical center", beds=None, sourceUrl=h["source"], sourceFormat="CSV",
                 lastPublished=h["published"], lastRetrieved=retrieved_at())
 
@@ -231,3 +316,65 @@ def hospital_prices(hospital_id: str):
 @app.get("/api/quality")
 def quality():
     return [quality_for(h) for h in HOSPITALS]
+
+
+@app.get("/api/admin/template")
+def admin_template(x_admin_username: str | None = Header(None), x_admin_key: str | None = Header(None)):
+    require_admin_key(x_admin_username, x_admin_key)
+    return {"columns": ["code", "description", "payer", "plan", "setting", "gross", "cash", "negotiated"], "required": ["code", "setting"], "priceColumns": ["gross", "cash", "negotiated"]}
+
+
+@app.post("/api/admin/uploads")
+async def admin_upload(
+    file: UploadFile = File(...),
+    hospital_name: str = Form(...),
+    hospital_code: str = Form(...),
+    system: str = Form(""),
+    neighborhood: str = Form("Greater Boston"),
+    city: str = Form("Boston"),
+    published: str = Form(""),
+    replace: bool = Form(False),
+    x_admin_username: str | None = Header(None),
+    x_admin_key: str | None = Header(None),
+):
+    require_admin_key(x_admin_username, x_admin_key)
+    if not file.filename or not file.filename.lower().endswith(".csv"):
+        raise HTTPException(422, "Upload a CSV file.")
+    hospital_id = normalize_id(hospital_code)
+    code = hospital_code.upper().strip()
+    if not code:
+        raise HTTPException(422, "Hospital code is required.")
+    published = published or date.today().isoformat()
+    try:
+        date.fromisoformat(published)
+    except ValueError as error:
+        raise HTTPException(422, "Published date must be YYYY-MM-DD.") from error
+    frame = upload_frame(await file.read(), code, hospital_name.strip(), system.strip(), published)
+    ensure_admin_tables()
+    con = duckdb.connect(DB)
+    try:
+        exists = con.execute("select count(*) from hospital_registry where id = ?", [hospital_id]).fetchone()[0]
+        if exists and not replace:
+            raise HTTPException(409, "That hospital already exists. Select replace to replace its uploaded records.")
+        con.execute("begin transaction")
+        if exists:
+            old_code = con.execute("select code from hospital_registry where id = ?", [hospital_id]).fetchone()[0]
+            con.execute("delete from raw where hospital = ?", [old_code])
+            con.execute("delete from hospital_registry where id = ?", [hospital_id])
+        con.register("uploaded_rows", frame)
+        con.execute("insert into raw select * from uploaded_rows")
+        con.execute("insert into hospital_registry (id, code, name, short_name, neighborhood, city, source, published) values (?, ?, ?, ?, ?, ?, ?, ?)", [hospital_id, code, hospital_name.strip(), code, neighborhood.strip(), city.strip(), file.filename, published])
+        con.execute("commit")
+    except HTTPException:
+        con.execute("rollback")
+        raise
+    except Exception as error:
+        con.execute("rollback")
+        raise HTTPException(500, f"Upload was not saved: {error}") from error
+    finally:
+        con.close()
+    # Rebuild the cleaned view from raw records before exposing the upload.
+    runpy.run_path(str(Path(__file__).resolve().parent / "pipeline" / "03_clean.py"))
+    load.cache_clear()
+    refresh_hospitals()
+    return {"status": "ok", "hospitalId": hospital_id, "rowsImported": int(len(frame)), "inScopeRows": int(frame.code.isin(PROCS).sum())}

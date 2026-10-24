@@ -85,6 +85,40 @@ class ThreeHospitalApiTests(unittest.TestCase):
             self.assertEqual(len(response.json()), 25)
         self.assertEqual(self.client.get("/api/procedures/invalid").status_code, 404)
 
+    def test_admin_csv_upload_adds_a_hospital(self):
+        import os
+        previous_key = os.environ.get("ADMIN_API_KEY")
+        previous_username = os.environ.get("ADMIN_USERNAME")
+        os.environ["ADMIN_API_KEY"] = "test-admin-key"
+        os.environ["ADMIN_USERNAME"] = "test-admin"
+        csv = b"code,description,payer,setting,gross,cash,negotiated\n45385,Colonoscopy,Blue Cross Blue Shield,outpatient,2500,900,1100\n"
+        response = self.client.post("/api/admin/uploads", headers={"X-Admin-Username": "test-admin", "X-Admin-Key": "test-admin-key"}, data={
+            "hospital_name": "Test Hospital", "hospital_code": "TEST", "published": "2026-10-24",
+        }, files={"file": ("test.csv", csv, "text/csv")})
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(response.json()["inScopeRows"], 1)
+        hospitals = self.client.get("/api/hospitals").json()
+        self.assertIn("test", {h["id"] for h in hospitals})
+        price = self.client.get("/api/prices/compare", params={
+            "code": "45385", "priceType": "cash", "setting": "outpatient", "hospitalIds": "test",
+        }).json()
+        self.assertEqual(price["rows"][0]["amount"], 900.0)
+        con = __import__("duckdb").connect(config.DB)
+        con.execute("delete from raw where hospital = 'TEST'")
+        con.execute("delete from hospital_registry where id = 'test'")
+        con.close()
+        runpy.run_path(str(ROOT / "pipeline" / "03_clean.py"))
+        self.api.load.cache_clear()
+        self.api.refresh_hospitals()
+        if previous_key is None:
+            del os.environ["ADMIN_API_KEY"]
+        else:
+            os.environ["ADMIN_API_KEY"] = previous_key
+        if previous_username is None:
+            del os.environ["ADMIN_USERNAME"]
+        else:
+            os.environ["ADMIN_USERNAME"] = previous_username
+
 
 if __name__ == "__main__":
     unittest.main()
